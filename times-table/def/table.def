@@ -1,0 +1,8 @@
+argument is A
+comment is //
+
+// Prints the times table of A0, from 1 x A0 to 10 x A0.
+// Example: times table of 3
+//          → prints 1 x 3 = 3, 2 x 3 = 6 … 10 x 3 = 30
+def times table of A0
+    for each n in numbers from 1 to 10: say n " x " A0 " = " n * A0

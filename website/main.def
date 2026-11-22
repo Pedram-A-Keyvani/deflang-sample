@@ -1,0 +1,34 @@
+use core
+use web/server
+use web/script
+use def/app.api
+use def/site.page
+use def/views/site.nav
+use def/views/home.view
+use def/views/hello.view
+use def/views/bmi.view
+use def/views/missing.view
+
+// run with:  def-lang run website   then open http://localhost:8000
+// settings.toml says how it runs (port, reloading changed files); save it to change them while it runs.
+//
+// A single page application: each view is an HTML def in def/views/, and the
+// page (def/site.page.def) holds them all, with the script that switches views
+// without reloading. The views ask the api below for data.
+//
+//   def/site.page.def       the one page the views live in (HTML)
+//   def/app.api.def         what the api runs
+//   def/views/*.view.def    one file per view, in HTML
+//   def/views/site.nav.def  the links at the top
+//   settings.toml           port, everyone, reload, check_every
+//
+// The web server and the script come from the web library (web/server and
+// web/script), installed with def-lang install.
+
+// visits is shared by def/app.api.def; this file sends it
+use visits from def/app.api
+api "/api/visit" runs count the visit and sends visits, time, today
+api "/api/hello" sends greeting
+api "/api/bmi" sends bmi, verdict
+serve site page at "/"
+start the server

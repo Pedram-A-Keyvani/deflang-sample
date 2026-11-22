@@ -1,0 +1,9 @@
+use core
+
+`give 2 numbers less than or equal to 14`
+one of the numbers is 11?
+    it should be converted to 1
+their sum is greater than 21?
+    "You lost"
+is not?
+    "You win"

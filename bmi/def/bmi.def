@@ -1,0 +1,27 @@
+argument is A
+comment is //
+
+// BMI is weight (kg) divided by height (m) squared
+
+// A height in metres. A number over 3 can only be centimetres, so it is divided by 100.
+// Example: 175 as metres
+//          → 1.75
+def A0 as metres
+    A0 / 100 if A0 > 3 otherwise A0
+
+// The BMI for a weight in kg and a height in m or cm, to one decimal.
+// Example: bmi of 70 and 175
+//          → 22.9
+def bmi of A0 and A1
+    A0 / A1 as metres squared rounded to 1 places
+
+// "underweight", "healthy" or "overweight" for a BMI.
+// Example: verdict for 22.9
+//          → "healthy"
+def verdict for A0
+    is A0 < 18.5?
+        "underweight"
+    is A0 between 18.5 and 25?
+        "healthy"
+    is A0 >= 25?
+        "overweight"

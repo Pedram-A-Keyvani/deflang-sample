@@ -1,0 +1,7 @@
+use core
+use def/table
+
+// run with:  def-lang run times-table
+
+give number
+times table of number

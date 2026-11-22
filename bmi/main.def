@@ -1,0 +1,11 @@
+use core
+use def/bmi
+
+// run with:  def-lang run bmi
+
+say "Your weight in kg and your height in m or cm:"
+give weight
+give height
+bmi is bmi of weight and height
+say "Your BMI is " bmi
+say "That is " verdict for bmi

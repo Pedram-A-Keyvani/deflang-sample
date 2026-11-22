@@ -1,0 +1,7 @@
+# How the website runs. Read again whenever you save it, while the website runs:
+# no restart needed.
+
+port = 8000
+everyone = false     # true: other computers on the network can connect
+reload = true        # read changed .def files again when a page is visited
+check_every = 5      # seconds between checks for changes (this file and the .def files)

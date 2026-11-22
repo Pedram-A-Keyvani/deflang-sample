@@ -1,0 +1,22 @@
+use html
+use css
+
+argument is A
+comment is //
+
+// The links at the top of every view. The page puts them in its <nav def="site nav">.
+// Example: serve site page at "/"
+//          → GET / answers a page containing <a href="/bmi">BMI</a>
+def html site nav
+    <style def="site nav style"></style>
+    <a href="/">Home</a>
+    <a href="/hello">Hello</a>
+    <a href="/bmi">BMI</a>
+
+// How the links look: grey in a row, and the one for the open view underlined.
+// Example: serve site page at "/"
+//          → GET / answers a page containing nav a[aria-current]
+def css site nav style
+    nav { display: flex; gap: 1rem; }
+    nav a { color: var(--muted); text-decoration: none; padding: .25rem 0; border-bottom: 2px solid transparent; }
+    nav a[aria-current] { color: var(--fg); border-bottom-color: var(--accent); }
