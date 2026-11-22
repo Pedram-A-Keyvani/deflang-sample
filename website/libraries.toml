@@ -1,8 +1,8 @@
 # The libraries of this program, and where they come from. Written by
 # `python -m deflang install`; run it with no arguments to install them all again.
 
-core = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#core", global = "0.1.0" }
-css = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#language/css", global = "0.1.0" }
-html = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#language/html", global = "0.1.0" }
-javascript = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#language/javascript", global = "0.1.0" }
-web = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#web" }
+core = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#core", version = "0.1.1", global = true }
+css = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#language/css", version = "0.1.0", global = true }
+html = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#language/html", version = "0.1.0", global = true }
+javascript = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#language/javascript", version = "0.1.0", global = true }
+web = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#web", version = "0.1.0" }

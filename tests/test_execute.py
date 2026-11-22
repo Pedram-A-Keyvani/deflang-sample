@@ -8,6 +8,7 @@ import sys
 import json
 import tempfile
 import threading
+import tomllib
 import urllib.error
 import urllib.request
 import unittest
@@ -421,9 +422,10 @@ class TestLoopsAndTools(DefTest):
         self.assertTrue(self.run_lines("[] is empty"))
 
     def test_rounding_is_looser_than_math(self):
-        self.assertEqual(self.run_lines("70 / 1.75 squared rounded to 1 places"), 22.9)
+        self.assertEqual(self.run_lines("70 / 1.75 squared rounded to 1 place"), 22.9)
+        self.assertEqual(self.run_lines("70 / 1.75 squared rounded to 2 places"), 22.86)
         self.assertEqual(self.run_lines("2.6 rounded"), 3)
-        self.assertEqual(self.run_lines('"BMI " 70 / 1.75 squared rounded to 1 places'), "BMI 22.9")
+        self.assertEqual(self.run_lines('"BMI " 70 / 1.75 squared rounded to 1 place'), "BMI 22.9")
 
     def test_random(self):
         for _ in range(20):
@@ -859,13 +861,14 @@ class TestLibraries(unittest.TestCase):
     def test_a_new_version_is_shown_and_written(self):
         self.install(f"{self.url}#core")
         toml = self.repo / "core" / "library.toml"
-        toml.write_text(toml.read_text().replace('version = "0.1.0"', 'version = "0.2.0"'))
+        before = tomllib.loads(toml.read_text())["version"]
+        toml.write_text(toml.read_text().replace(f'version = "{before}"', 'version = "9.9.9"'))
         git = lambda *args: subprocess.run(["git", "-C", str(self.repo), *args], check=True, capture_output=True)
-        git("-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "--quiet", "-am", "core 0.2.0")
+        git("-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "--quiet", "-am", "core 9.9.9")
         from deflang import libraries
         libraries.install_all(self.program, say=self.said.append)
-        self.assertIn("core: 0.1.0 → 0.2.0", self.said)
-        self.assertIn('version = "0.2.0"', self.listed())
+        self.assertIn(f"core: {before} → 9.9.9", self.said)
+        self.assertIn('version = "9.9.9"', self.listed())
 
     def test_a_program_runs_with_only_its_libraries(self):
         self.install(f"{self.url}#core")
@@ -931,7 +934,8 @@ class TestLibraries(unittest.TestCase):
         with mock.patch("sys.stdout"), mock.patch("os.getcwd", return_value=str(self.program)), \
                 mock.patch("pathlib.Path.cwd", return_value=self.program):
             self.assertIsNone(main(["install", f"{self.url}#core", "--global"]))
-        self.assertTrue((self.global_folder / "core" / "0.1.0" / "main.def").is_file())
+        version = tomllib.loads((library("core") / "library.toml").read_text())["version"]
+        self.assertTrue((self.global_folder / "core" / version / "main.def").is_file())
         settings = self.program / "settings.toml"
         with mock.patch.object(libraries, "SETTINGS", settings), mock.patch.dict(os.environ, {"DEFLANG_GLOBAL": ""}), \
                 mock.patch("sys.stdout"):

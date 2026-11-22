@@ -1,7 +1,7 @@
 """Runs the `Example:` of every def and checks its `→` result, so the examples in the
 comments (shown in the editor's hover) stay true.
 
-    // Example: 22.857 rounded to 1 places
+    // Example: 22.857 rounded to 1 place
     //          → 22.9
 
 What a result can say:

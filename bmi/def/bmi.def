@@ -13,7 +13,7 @@ def A0 as metres
 // Example: bmi of 70 and 175
 //          → 22.9
 def bmi of A0 and A1
-    A0 / A1 as metres squared rounded to 1 places
+    A0 / A1 as metres squared rounded to 1 place
 
 // "underweight", "healthy" or "overweight" for a BMI.
 // Example: verdict for 22.9

@@ -41,7 +41,7 @@ def bmi
     height is query "height"
     // a height over 3 can only be centimetres
     height is height / 100 if height > 3 otherwise height
-    weight / height squared rounded to 1 places
+    weight / height squared rounded to 1 place
 
 // What the BMI means: underweight, healthy or overweight.
 // Example: verdict, for GET /api/bmi?weight=70&height=1.75
