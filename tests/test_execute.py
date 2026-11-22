@@ -746,18 +746,22 @@ class TestSettings(unittest.TestCase):
         self.settings('port = "8000"\n')
         with self.assertRaisesRegex(DefException, "port must be a whole number"):
             self.e.run("start the server")
-        self.settings("port = 0\ncheck_every = 0.01\n")
-        with self.assertRaisesRegex(DefException, "at least 0.1"):
+        self.settings("port = 0\nwatch = 0.01\n")
+        with self.assertRaisesRegex(DefException, "watch is 0 \\(off\\), or at least 0.1 seconds"):
+            self.e.run("start the server")
+        # the old names are gone: the message lists the settings there are
+        self.settings("port = 0\nreload = true\n")
+        with self.assertRaisesRegex(DefException, "unknown setting 'reload' \\(the settings are port, everyone, watch\\)"):
             self.e.run("start the server")
 
     def test_a_new_port_while_it_runs(self):
-        self.settings("port = 0\ncheck_every = 0.1\n")
+        self.settings("port = 0\n")
         self.start()
         old = self.port()
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
             new = probe.getsockname()[1]
-        self.settings(f"port = {new}\ncheck_every = 0.1\n")
+        self.settings(f"port = {new}\n")
         self.wait(lambda: self.port() == new)
         self.assertEqual(self.get(port=new), "<p>one 1</p>")
         with self.assertRaises(OSError):
@@ -766,8 +770,8 @@ class TestSettings(unittest.TestCase):
         self.assertEqual(self.get(port=new), "<p>one 2</p>")
         self.assertIn(f"settings changed: now on http://localhost:{new}", self.said)
 
-    def test_reload_shows_a_changed_view(self):
-        self.settings("port = 0\nreload = true\ncheck_every = 0.1\n")
+    def test_watch_shows_a_changed_view(self):
+        self.settings("port = 0\nwatch = 0.1\n")
         self.start()
         self.assertEqual(self.get(), "<p>one 1</p>")
         self.view.write_text('shared hits is 0\ndef the page\n    hits is hits + 1\n    "<p>two " hits "</p>"\n')
@@ -776,10 +780,10 @@ class TestSettings(unittest.TestCase):
         time.sleep(0.15)
         # the new def, and hits wasn't set back to 0
         self.assertEqual(self.get(), "<p>two 2</p>")
-        self.assertIn("reloaded view.def", self.said)
+        self.assertIn("read again: view.def", self.said)
 
-    def test_without_reload_nothing_is_read_again(self):
-        self.settings("port = 0\ncheck_every = 0.1\n")
+    def test_without_watch_nothing_is_read_again(self):
+        self.settings("port = 0\n")
         self.start()
         self.view.write_text('def the page\n    "<p>two</p>"\n')
         later = time.time_ns() + 10**9
@@ -787,18 +791,18 @@ class TestSettings(unittest.TestCase):
         time.sleep(0.15)
         self.assertEqual(self.get(), "<p>one 1</p>")
 
-    def test_turning_reload_on_while_it_runs(self):
-        self.settings("port = 0\ncheck_every = 0.1\n")
+    def test_turning_watch_on_while_it_runs(self):
+        self.settings("port = 0\n")
         self.start()
         port = self.port()
-        self.settings(f"port = {port}\nreload = true\ncheck_every = 0.1\n")
-        self.wait(lambda: "settings changed: reload is true" in self.said)
+        self.settings(f"port = {port}\nwatch = 0.1\n")
+        self.wait(lambda: "settings changed: watch is 0.1" in self.said)
 
     def test_a_bad_setting_keeps_the_last_ones(self):
-        self.settings("port = 0\ncheck_every = 0.1\n")
+        self.settings("port = 0\n")
         self.start()
         port = self.port()
-        self.settings("port = 0\nreload = yes\n")
+        self.settings("port = 0\nwatch = yes\n")
         self.wait(lambda: any(line.startswith("settings not changed") for line in self.said))
         self.assertEqual(self.port(), port)
         self.assertEqual(self.get(), "<p>one 1</p>")
@@ -1023,7 +1027,7 @@ class TestPackages(unittest.TestCase):
     def test_website_bmi_accepts_metres_and_centimetres(self):
         e = Execute(output=lambda value: None)
         e.program_dir = SAMPLES / "website"
-        for line in ["use core", "use web/server", "use def/app.api"]:
+        for line in ["use core", "use web/server", "use html", "use css", "use def/components/bmi"]:
             e.run(line)
         for height in ["1.75", "175"]:
             e._request = {"path": "/api/bmi", "query": {"weight": "70", "height": height}, "page": False}
@@ -1034,9 +1038,8 @@ class TestPackages(unittest.TestCase):
 
     def test_website_package_exists(self):
         package = SAMPLES / "website"
-        views = ["site.nav", "home.view", "hello.view", "bmi.view", "missing.view"]
-        for name in ["main.def", "def/site.page.def", "def/app.api.def",
-                     *[f"def/views/{v}.def" for v in views]]:
+        components = ["nav", "home", "hello", "bmi", "missing"]
+        for name in ["main.def", "def/site.page.def", "def/routes.def", *[f"def/components/{c}.def" for c in components]]:
             self.assertTrue((package / name).is_file(), name)
 
 

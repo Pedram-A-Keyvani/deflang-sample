@@ -1,0 +1,10 @@
+// Every address the website answers: the api the components ask for data, and the
+// page for every other address. An api line runs on every visit with variables of
+// the visit's own, on top of this file's.
+use web/server
+use visits from components/home
+
+api "/api/visit" runs count the visit and sends visits, time, today
+api "/api/hello" sends greeting
+api "/api/bmi" sends bmi, verdict
+serve site page at "/"

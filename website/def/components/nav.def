@@ -17,6 +17,19 @@ def html site nav
 // Example: serve site page at "/"
 //          → GET / answers a page containing nav a[aria-current]
 def css site nav style
-    nav { display: flex; gap: 1rem; }
-    nav a { color: var(--muted); text-decoration: none; padding: .25rem 0; border-bottom: 2px solid transparent; }
-    nav a[aria-current] { color: var(--fg); border-bottom-color: var(--accent); }
+    nav {
+        display: flex;
+        gap: 1rem;
+    }
+
+    nav a {
+        color: var(--muted);
+        text-decoration: none;
+        padding: .25rem 0;
+        border-bottom: 2px solid transparent;
+    }
+
+    nav a[aria-current] {
+        color: var(--fg);
+        border-bottom-color: var(--accent);
+    }

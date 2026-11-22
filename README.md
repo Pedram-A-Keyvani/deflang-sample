@@ -10,7 +10,7 @@ tests of both.
 | `black-jack/` | asking for numbers, questions, `one of … is`, `their sum` |
 | `bmi/` | asking for values, a program in two files (`use def/bmi`), questions inside a def |
 | `times-table/` | a loop (`for each … in …`), and joined text with math inside |
-| `website/` | a single page application: views in HTML, CSS and JavaScript defs, an api, shared variables, `settings.toml` |
+| `website/` | a single page application of components: each one file with its view (HTML), style (CSS), script (JavaScript) and data; every address in `def/routes.def`; shared variables; `settings.toml` |
 
 ## Running a sample
 
