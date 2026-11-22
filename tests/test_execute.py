@@ -852,9 +852,20 @@ class TestLibraries(unittest.TestCase):
         self.assertEqual(self.install(f"{self.url}#web"), ["web", "javascript"])
         self.assertTrue((self.program / "libraries" / "web" / "server.def").is_file())
         self.assertTrue((self.program / "libraries" / "javascript" / "main.def").is_file())
-        self.assertIn(f'web = {{ from = "{self.url}#web" }}', self.listed())
-        self.assertIn(f'javascript = {{ from = "{self.url}#language/javascript" }}', self.listed())
+        self.assertIn(f'web = {{ from = "{self.url}#web", version = "0.1.0" }}', self.listed())
+        self.assertIn(f'javascript = {{ from = "{self.url}#language/javascript", version = "0.1.0" }}', self.listed())
         self.assertEqual((self.program / "libraries" / ".gitignore").read_text().splitlines()[-1], "*")
+
+    def test_a_new_version_is_shown_and_written(self):
+        self.install(f"{self.url}#core")
+        toml = self.repo / "core" / "library.toml"
+        toml.write_text(toml.read_text().replace('version = "0.1.0"', 'version = "0.2.0"'))
+        git = lambda *args: subprocess.run(["git", "-C", str(self.repo), *args], check=True, capture_output=True)
+        git("-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "--quiet", "-am", "core 0.2.0")
+        from deflang import libraries
+        libraries.install_all(self.program, say=self.said.append)
+        self.assertIn("core: 0.1.0 → 0.2.0", self.said)
+        self.assertIn('version = "0.2.0"', self.listed())
 
     def test_a_program_runs_with_only_its_libraries(self):
         self.install(f"{self.url}#core")
@@ -864,7 +875,7 @@ class TestLibraries(unittest.TestCase):
         self.assertEqual(self.install(f"{self.url}#web", globally=True), ["web", "javascript"])
         self.assertTrue((self.global_folder / "web" / "0.1.0" / "server.def").is_file())
         self.assertFalse((self.program / "libraries").exists())
-        self.assertIn(f'web = {{ from = "{self.url}#web", global = "0.1.0" }}', self.listed())
+        self.assertIn(f'web = {{ from = "{self.url}#web", version = "0.1.0", global = true }}', self.listed())
         self.install(f"{self.url}#core", globally=True)
         self.assertEqual(self.run_program("use core", "3 squared"), 9)
 
@@ -902,6 +913,10 @@ class TestLibraries(unittest.TestCase):
                     self.install(*args, **options)
             (self.program / "libraries.toml").write_text('core = "somewhere"\n')
             with self.assertRaisesRegex(DefException, 'write core as core = { from = "..." }'):
+                libraries.listed(self.program)
+            # the old form of a global library says how it is written now
+            (self.program / "libraries.toml").write_text('core = { from = "x.git#core", global = "0.1.0" }\n')
+            with self.assertRaisesRegex(DefException, 'as version = "0.1.0", global = true'):
                 libraries.listed(self.program)
         finally:
             shutil.rmtree(outside)

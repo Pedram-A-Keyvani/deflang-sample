@@ -55,3 +55,16 @@ def link_libraries(program, *names):
 LIBRARY_PROGRAM = Path(tempfile.mkdtemp(prefix="deflang-library-program-"))
 link_libraries(LIBRARY_PROGRAM)
 atexit.register(shutil.rmtree, LIBRARY_PROGRAM, ignore_errors=True)
+
+
+# a sample's libraries from git that live in the project (not global) are copies in its
+# libraries/, made by `def-lang install`: the tests make them from ../deflang-lib, each run
+for toml in sorted(SAMPLES.glob("*/libraries.toml")):
+    for name, entry in tomllib.loads(toml.read_text()).items():
+        if "://" in entry.get("from", "") and not entry.get("global") and name in LIBRARIES:
+            copies = toml.parent / "libraries"
+            copies.mkdir(exist_ok=True)
+            if not (copies / ".gitignore").exists():
+                (copies / ".gitignore").write_text("# copies made by `def-lang install`: run it to make them again\n*\n")
+            shutil.rmtree(copies / name, ignore_errors=True)
+            shutil.copytree(library(name), copies / name, ignore=shutil.ignore_patterns(".git", "__pycache__"))
