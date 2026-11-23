@@ -67,24 +67,15 @@ def examples():
 
 
 def def_below(path, number):
-    """The def line (after `def `) right below the example on line `number`, or None."""
+    """The pattern of the definition line right below the example on line `number`, or
+    None: `python[written] A0 is A1` gives `A0 is A1`."""
     for line in path.read_text().split("\n")[number:]:
-        if line.startswith("def "):
-            return line[4:].strip()
+        m = re.match(r"(?:internal\s+)*(def|python|html|css|javascript)(\[[^\]]*\])?\s+(\S.*)$", line)
+        if m:
+            return m.group(3).strip()
         if line.strip() and not line.lstrip().startswith("//"):
             return None
     return None
-
-
-def without_flags(text, languages):
-    """`python as written A0 is A1` -> `A0 is A1`"""
-    while True:
-        m = re.match(r"(as\s+written|regex|\w+)\s+", text)
-        if not m or (m.group(1) not in ("regex",) and not m.group(1).startswith("as") and m.group(1) not in languages):
-            return text
-        if m.group(1).startswith("as") and not re.match(r"as\s+written\s", text):
-            return text
-        text = text[m.end():]
 
 
 def value(text):
@@ -103,7 +94,7 @@ def engine_for(path, said):
             if line.startswith("use "):
                 e.run(line)
     else:
-        # a library's file: the core library, and the file itself (`use web/server`, `use html`)
+        # a library's file: the core library, and the file itself (`use web/server`, `use language/html`)
         e.program_dir = LIBRARY_PROGRAM
         e.run("use core")
         library = path.parent.name
@@ -159,7 +150,6 @@ class TestExamples(unittest.TestCase):
             given = re.sub(r", for GET \S+$", "", given)
             with self.subTest(f"{where(path)}:{number}: {given}"):
                 e = engine_for(path, [])
-                definition = without_flags(definition, e.languages)
                 mine = [d for d in e.definitions if d.file == path.resolve() and d.source == definition]
                 if not mine or not mine[0].matches(given):
                     continue  # the example uses the def inside a longer line, or another way

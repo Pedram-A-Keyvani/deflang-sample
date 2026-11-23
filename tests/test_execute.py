@@ -142,7 +142,7 @@ class TestErrors(DefTest):
             self.run_lines("error boom")
 
     def test_python_error_in_body_names_the_line(self):
-        self.run_lines("def python explode", "    return 1 / 0")
+        self.run_lines("python explode", "    return 1 / 0")
         with self.assertRaisesRegex(DefException, "in 'explode': ZeroDivisionError"):
             self.run_lines("explode")
 
@@ -162,7 +162,7 @@ class TestDefinitions(DefTest):
         self.assertEqual(self.run_lines("double 2 + 3"), 7)
 
     def test_as_written_gets_source_text(self):
-        self.run_lines("def python as written source of A0", "    return A0")
+        self.run_lines("python[written] source of A0", "    return A0")
         self.assertEqual(self.run_lines("source of 1 + 1"), "1 + 1")
 
 
@@ -184,8 +184,8 @@ class TestDefinitions(DefTest):
 
     def test_each_file_starts_with_argument_A(self):
         with tempfile.TemporaryDirectory() as folder:
-            Path(folder, "inner.def").write_text("def python half A0\n    return A0 / 2\n")
-            Path(folder, "main.def").write_text("argument is X\nuse inner\ndef python twice X0\n    return X0 * 2\n")
+            Path(folder, "inner.def").write_text("python half A0\n    return A0 / 2\n")
+            Path(folder, "main.def").write_text("argument is X\nuse inner\npython twice X0\n    return X0 * 2\n")
             e = Execute()
             e.run(f"use {Path(folder, 'main')}")
             self.assertEqual(e.run("half 4"), 2)   # inner.def wrote A0, not X0
@@ -315,7 +315,7 @@ class TestNumberWords(DefTest):
         self.assertTrue(self.run_lines("one of the cards is eleven"))
 
     def test_restricted_argument(self):
-        self.run_lines("def python as written (A0: [a-z]+) shouted", "    return A0.upper()")
+        self.run_lines("python[written] (A0: [a-z]+) shouted", "    return A0.upper()")
         self.assertEqual(self.run_lines("hello shouted"), "HELLO")
         with self.assertRaisesRegex(DefException, "unknown name"):
             self.run_lines("hello world shouted")
@@ -337,8 +337,8 @@ class TestReadableDefs(DefTest):
 
     def test_flags_go_on_the_first_line_of_a_group(self):
         with self.assertRaisesRegex(DefException, "flags of its first line"):
-            self.run_lines("def A0 twice", "def python twice A0")
-        self.run_lines("def python A0 thrice", "def python thrice A0", "    return number(a[0]) * 3")
+            self.run_lines("def A0 twice", "python twice A0")
+        self.run_lines("python A0 thrice", "python thrice A0", "    return number(a[0]) * 3")
         self.assertEqual(self.run_lines("thrice 2"), 6)
 
     def test_def_lang_body_returns_its_last_value(self):
@@ -373,7 +373,7 @@ class TestReadableDefs(DefTest):
         self.assertEqual(self.run_lines("one hundred and two plus 100"), 202)
 
     def test_regex_flag_keeps_raw_patterns(self):
-        self.run_lines("def regex (shout)\\s+A0 or (yell)\\s+A0", "    A0")
+        self.run_lines("def[regex] (shout)\\s+A0 or (yell)\\s+A0", "    A0")
         self.assertEqual(self.run_lines("yell 3"), 3)
 
 
@@ -670,10 +670,10 @@ class TestReload(DefTest):
         # the page didn't use CSS when it was read; now it imports the CSS language and has a def css
         with tempfile.TemporaryDirectory() as folder:
             file = Path(folder, "page.def")
-            file.write_text('use html\ndef html page\n    <p>hi</p>\n')
+            file.write_text('use language/html\nhtml page\n    <p>hi</p>\n')
             self.run_lines(f"use {folder}/page")
-            file.write_text('use html\nuse css\n'
-                            'def html page\n    <style def="look"></style>\ndef css look\n    p { color: red; }\n')
+            file.write_text('use language/html\nuse language/css\n'
+                            'html page\n    <style def="look"></style>\ncss look\n    p { color: red; }\n')
             self.e.reload(file.resolve())
             self.assertEqual(self.run_lines("page"), '<style def="look">p { color: red; }</style>')
 
@@ -682,7 +682,7 @@ class TestReload(DefTest):
             file = Path(folder, "greet.def")
             file.write_text('def hi\n    "one"\n')
             self.run_lines(f"use {folder}/greet")
-            file.write_text('def regex hi (\n    "two"\n')
+            file.write_text('def[regex] hi (\n    "two"\n')
             with self.assertRaises(DefException):
                 self.e.reload(file.resolve())
             self.assertEqual(self.run_lines("hi"), "one")
@@ -820,7 +820,7 @@ class TestLibraries(unittest.TestCase):
         self.global_folder = Path(tempfile.mkdtemp())
         self.env = mock.patch.dict(os.environ, {"DEFLANG_GLOBAL": str(self.global_folder)})
         self.env.start()
-        for name, inside in [("core", "core"), ("web", "web"), ("javascript", "language/javascript")]:
+        for name, inside in [("core", "core"), ("modifier", "modifier"), ("web", "web"), ("language", "language")]:
             shutil.copytree(library(name), self.repo / inside)
         git = lambda *args: subprocess.run(["git", "-C", str(self.repo), *args], check=True, capture_output=True)
         git("init", "--quiet")
@@ -849,13 +849,18 @@ class TestLibraries(unittest.TestCase):
     def listed(self):
         return (self.program / "libraries.toml").read_text()
 
+    @staticmethod
+    def version(name):
+        """The version deflang-lib's library.toml gives the library `name`."""
+        return tomllib.loads((library(name) / "library.toml").read_text())["version"]
+
     def test_from_git_into_the_project(self):
-        # web's own libraries.toml lists ../language/javascript: it comes from the same repo
-        self.assertEqual(self.install(f"{self.url}#web"), ["web", "javascript"])
+        # web's own libraries.toml lists ../language: it comes from the same repo
+        self.assertEqual(self.install(f"{self.url}#web"), ["web", "language"])
         self.assertTrue((self.program / "libraries" / "web" / "server.def").is_file())
-        self.assertTrue((self.program / "libraries" / "javascript" / "main.def").is_file())
-        self.assertIn(f'web = {{ from = "{self.url}#web", version = "0.1.0" }}', self.listed())
-        self.assertIn(f'javascript = {{ from = "{self.url}#language/javascript", version = "0.1.0" }}', self.listed())
+        self.assertTrue((self.program / "libraries" / "language" / "javascript.def").is_file())
+        self.assertIn(f'web = {{ from = "{self.url}#web", version = "{self.version("web")}" }}', self.listed())
+        self.assertIn(f'language = {{ from = "{self.url}#language", version = "{self.version("language")}" }}', self.listed())
         self.assertEqual((self.program / "libraries" / ".gitignore").read_text().splitlines()[-1], "*")
 
     def test_a_new_version_is_shown_and_written(self):
@@ -875,18 +880,21 @@ class TestLibraries(unittest.TestCase):
         self.assertEqual(self.run_program("use core", "x is 2 + 3", "x squared"), 25)
 
     def test_global(self):
-        self.assertEqual(self.install(f"{self.url}#web", globally=True), ["web", "javascript"])
-        self.assertTrue((self.global_folder / "web" / "0.1.0" / "server.def").is_file())
+        self.assertEqual(self.install(f"{self.url}#web", globally=True), ["web", "language"])
+        self.assertTrue((self.global_folder / "web" / self.version("web") / "server.def").is_file())
         self.assertFalse((self.program / "libraries").exists())
-        self.assertIn(f'web = {{ from = "{self.url}#web", version = "0.1.0", global = true }}', self.listed())
+        self.assertIn(f'web = {{ from = "{self.url}#web", version = "{self.version("web")}", global = true }}', self.listed())
         self.install(f"{self.url}#core", globally=True)
         self.assertEqual(self.run_program("use core", "3 squared"), 9)
 
     def test_a_local_library_is_linked(self):
+        # core's own libraries.toml lists ../modifier: linked the same way
         shutil.copytree(library("core"), self.program / "my-libraries" / "core")
+        shutil.copytree(library("modifier"), self.program / "my-libraries" / "modifier")
         self.install(self.program / "my-libraries" / "core", link=True)
         self.assertFalse((self.program / "libraries" / "core").exists())
         self.assertIn('core = { from = "my-libraries/core", link = true }', self.listed())
+        self.assertIn('modifier = { from = "my-libraries/modifier", link = true }', self.listed())
         self.assertEqual(self.run_program("use core", "3 squared"), 9)
 
     def test_install_again_from_the_list(self):
@@ -895,8 +903,8 @@ class TestLibraries(unittest.TestCase):
         self.install(f"{self.url}#web", globally=True)
         shutil.rmtree(self.program / "libraries")
         shutil.rmtree(self.global_folder / "web")
-        self.assertEqual(sorted(libraries.install_all(self.program, say=self.said.append)), ["core", "javascript", "web"])
-        self.assertTrue((self.global_folder / "web" / "0.1.0").is_dir())
+        self.assertEqual(sorted(libraries.install_all(self.program, say=self.said.append)), ["core", "language", "modifier", "web"])
+        self.assertTrue((self.global_folder / "web" / self.version("web")).is_dir())
         self.assertEqual(self.run_program("use core", "3 squared"), 9)
 
     def test_the_rules(self):
@@ -951,7 +959,7 @@ class TestHowALineIsRead(DefTest):
         return tree.definition.source
 
     def test_brackets_wrap_what_they_surround(self):
-        self.run_lines("def python as written api2 A0 runs A1 and sends A2", "    return A1")
+        self.run_lines("python[written] api2 A0 runs A1 and sends A2", "    return A1")
         self.assertEqual(self.outer('api2 "/a" runs x is 1 and sends x'), "api2 A0 runs A1 and sends A2")
         self.assertEqual(self.outer("is 5 > 3 ?"), "is A0 ?")
         self.assertEqual(self.outer('"yes" if 1 < 2 otherwise "no"'), "A0 if A1 otherwise A2")
@@ -977,12 +985,12 @@ class TestHowALineIsRead(DefTest):
 
     def test_a_text_at_the_end_is_not_a_closing_word(self):
         # a sentence wraps joined text that ends the line (unlike the `?` of a question)
-        self.run_lines("def python as written show A0 as A1", "    return A1")
+        self.run_lines("python[written] show A0 as A1", "    return A1")
         self.assertEqual(self.outer('show "/x" as "<p>" 1 "</p>"'), "show A0 as A1")
 
     def test_a_reading_with_no_value_loses(self):
         # joining is made first, but `size of` alone is no value: so it is `size of A0`
-        self.run_lines("def python size of A0", "    return len(A0)")
+        self.run_lines("python size of A0", "    return len(A0)")
         self.assertEqual(self.outer('size of "abc"'), "size of A0")
         self.assertEqual(self.run_lines('size of "abc"'), 3)
         self.assertEqual(self.run_lines('"n: " size of "abc"'), "n: 3")
@@ -1046,7 +1054,7 @@ class TestPackages(unittest.TestCase):
     def test_website_bmi_accepts_metres_and_centimetres(self):
         e = Execute(output=lambda value: None)
         e.program_dir = SAMPLES / "website"
-        for line in ["use core", "use web/server", "use html", "use css", "use def/components/bmi"]:
+        for line in ["use core", "use web/server", "use language/html", "use language/css", "use def/components/bmi"]:
             e.run(line)
         for height in ["1.75", "175"]:
             e._request = {"path": "/api/bmi", "query": {"weight": "70", "height": height}, "page": False}
@@ -1066,38 +1074,39 @@ class TestLanguages(DefTest):
     def test_a_language_of_your_own(self):
         self.run_lines(
             "language upper",
-            "    return fill(BODY, [as_text(value) for value in VAR]).upper()",
-            "def upper shout A0",
+            "    does",
+            "        return fill(BODY, [as_text(value) for value in VAR]).upper()",
+            "upper shout A0",
             "    hello A0, how are you?",
         )
         self.assertEqual(self.run_lines('shout "sam"'), "HELLO SAM, HOW ARE YOU?")
 
     def test_html_is_imported(self):
-        self.assertNotIn("html", self.e.languages)  # not part of the core
-        self.run_lines("use html", "def html greeting A0", "    <p>Hello A0</p>")
+        self.assertNotIn("html", self.e.kernel["language"])  # not part of the core
+        self.run_lines("use language/html", "html greeting A0", "    <p>Hello A0</p>")
         self.assertEqual(self.run_lines('greeting "<b>Sam</b>"'), "<p>Hello &lt;b&gt;Sam&lt;/b&gt;</p>")
-        self.assertIn("html", self.e.languages)
+        self.assertIn("html", self.e.kernel["language"])
 
     def test_an_element_gets_a_defs_html(self):
-        self.run_lines("use html", "def html links", "    <a href=\"/\">Home</a>",
-                       "def html page", "    <nav def=\"links\"></nav><main def=\"words\"></main>",
+        self.run_lines("use language/html", "html links", "    <a href=\"/\">Home</a>",
+                       "html page", "    <nav def=\"links\"></nav><main def=\"words\"></main>",
                        "def words", '    "<b>bold</b>"')
         # a def html result goes in as it is; any other value is escaped
         self.assertEqual(self.run_lines("page"), '<nav def="links"><a href="/">Home</a></nav><main def="words">&lt;b&gt;bold&lt;/b&gt;</main>')
 
     def test_a_script_gets_a_defs_javascript(self):
-        self.run_lines("use html", "use javascript",
-                       "def javascript hello", "    say('</p>')",
-                       "def html page", "    <script def=\"hello\"></script>")
+        self.run_lines("use language/html", "use language/javascript",
+                       "javascript hello", "    say('</p>')",
+                       "html page", "    <script def=\"hello\"></script>")
         # its code cannot end the <script> early, and data-def is not def
         self.assertEqual(self.run_lines("page"), "<script def=\"hello\">say('<\\/p>')</script>")
-        self.run_lines("def html other", '    <p data-def="hello"></p>')
+        self.run_lines("html other", '    <p data-def="hello"></p>')
         self.assertEqual(self.run_lines("other"), '<p data-def="hello"></p>')
 
     def test_a_style_gets_a_defs_css(self):
-        self.run_lines("use html", "use css",
-                       "def css accent A0", "    h1 { color: A0; }",
-                       "def html page", "    <style def=\"teal accent\"></style>",
+        self.run_lines("use language/html", "use language/css",
+                       "css accent A0", "    h1 { color: A0; }",
+                       "html page", "    <style def=\"teal accent\"></style>",
                        "def teal accent", '    accent "teal"')
         self.assertEqual(self.run_lines("page"), '<style def="teal accent">h1 { color: teal; }</style>')
         with self.assertRaisesRegex(DefException, "can't have"):
@@ -1105,42 +1114,142 @@ class TestLanguages(DefTest):
 
     def test_python_is_built_in(self):
         e = Execute()
-        e.run("def python seven")
+        e.run("python seven")
         e.run("    return 7")
         self.assertEqual(e.run("seven"), 7)
 
     def test_without_a_declaration_it_is_a_pattern_word(self):
+        # `def html thing`: a def-lang def whose pattern is `html thing`
         e = Execute()
         e.run("def html thing")
         e.run("    3")
         self.assertEqual(e.run("html thing"), 3)
 
-    def test_a_language_needs_a_body(self):
-        self.run_lines("language empty", "def empty nothing", "    text")
-        with self.assertRaisesRegex(DefException, "language empty has no body"):
+    def test_a_language_needs_does(self):
+        self.run_lines("language empty", "empty nothing", "    text")
+        with self.assertRaisesRegex(DefException, "language empty has no `does`"):
             self.run_lines("nothing")
 
-    def test_a_language_line_does_not_join_the_next_def(self):
-        self.run_lines("language python", "def python one", "    return 1")
-        self.assertEqual(self.run_lines("one"), 1)
+    def test_a_built_in_entry_is_not_declared_again(self):
+        with self.assertRaisesRegex(DefException, "language python is there already \\(built in\\)"):
+            self.run_lines("language python")
+
+
+class TestKernel(unittest.TestCase):
+    """The kernel's shapes (KERNEL.md): language[flags] pattern, entries, modifiers."""
+
+    def setUp(self):
+        self.said = []
+        self.e = Execute(output=lambda value: self.said.append(str(value)))
+        self.run_lines("python say A0", "    self.say(A0)")
+
+    def run_lines(self, *lines):
+        result = None
+        for line in lines:
+            result = self.e.run(line)
+        return result
+
+    def test_flags_in_brackets(self):
+        self.run_lines("python[written] source of A0", "    return A0")
+        self.assertEqual(self.run_lines("source of 1 + 1"), "1 + 1")
+        self.run_lines("def[regex] (A0: \\d+)% or (A0: \\d+) percent", "    A0")
+        self.assertEqual(self.run_lines("50 percent"), 50)
+
+    def test_the_flag_errors(self):
+        for line, message in [
+            ("def[] x", "no flags in def\\[\\]"),
+            ("def[as written] x", "unknown flag 'as' \\(the flags are: regex, written\\)"),
+            ("def[regex 3] x", "flag regex takes no value"),
+        ]:
+            with self.subTest(line), self.assertRaisesRegex(DefException, message):
+                self.run_lines(line)
+
+    def test_a_pattern_may_start_with_a_bracket(self):
+        # after a space, `[` is the pattern's
+        self.run_lines("def [ A0 ] first", "    A0")
+        self.assertEqual(self.run_lines("[ 7 ] first"), 7)
+
+    def test_a_group_has_one_language_and_flags(self):
+        self.run_lines("def A0 plus A1", "def the sum of A0 and A1", "    A0")
+        self.assertEqual(self.run_lines("the sum of 4 and 5"), 4)
+        self.run_lines("python[written] one A0")
+        with self.assertRaisesRegex(DefException, "the language and flags of its first line"):
+            self.run_lines("python two A0")
+
+    def test_an_entry_and_its_fields(self):
+        self.run_lines("language upper", "    does", "        return fill(BODY, [as_text(v) for v in VAR]).upper()",
+                       "upper shout A0", "    hi A0")
+        self.assertEqual(self.run_lines('shout "sam"'), "HI SAM")
+        self.assertIn("upper", self.e.kernel["language"])
+        for lines, message in [
+            (["language two words"], "an entry is its kind and a one-word name"),
+            (["language odd", "    colour red"], "language odd has no field 'colour' \\(its fields are: does, editor, flags\\)"),
+            (["modifier odd", "    applies to everything"], "applies to definition or name, not everything"),
+            (["statement odd", "        words odd"], "the fields of statement odd are one level in"),
+        ]:
+            with self.subTest(lines[-1]), self.assertRaisesRegex(DefException, message):
+                self.run_lines(*lines)
+
+    def test_a_language_takes_only_its_flags(self):
+        self.run_lines("language shout", "    does", "        return BODY.upper()")
+        with self.assertRaisesRegex(DefException, "shout takes no flag 'written'"):
+            self.run_lines("shout[written] hi")
+        self.run_lines("language loud", "    flags written", "    does", "        return BODY.upper()")
+        self.run_lines("loud[written] hey", "    hey")
+        self.assertEqual(self.run_lines("hey"), "HEY")
+
+    def test_a_statement_of_a_library(self):
+        self.run_lines("statement greet", "    words greet A0", "    does", "        self.say('hi ' + a[0].strip())")
+        self.run_lines("greet Pedram")
+        self.assertEqual(self.said, ["hi Pedram"])
+
+    def test_a_flag_of_a_library(self):
+        self.run_lines("flag cache", "    takes number", "    does", "        TARGET.cache = int(VALUE)",
+                       "def[cache 60] slow", "    1")
+        self.assertEqual([d.cache for d in self.e.definitions if d.source == "slow"], [60])
+        with self.assertRaisesRegex(DefException, "flag cache takes a number"):
+            self.run_lines("def[cache] fast")
+
+    def test_modifiers(self):
+        self.run_lines("modifier shared", "    applies to name", "    does", "        self.share(TARGET)",
+                       "python[written] A0 is A1", "    self.variables[A0] = self.run(A1)",
+                       "shared visits is 3")
+        self.assertEqual(self.run_lines("visits"), 3)
+        self.run_lines("modifier internal", "    applies to definition", "    does", "        TARGET.internal = True")
+        with self.assertRaisesRegex(DefException, "internal applies to a definition"):
+            self.run_lines("internal visits is 4")
+        with self.assertRaisesRegex(DefException, "shared applies to a name"):
+            self.run_lines("shared def x", "    1")
+
+    def test_an_internal_def_is_seen_only_by_its_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            Path(folder, "kernel.def").write_text(
+                "modifier internal\n    applies to definition\n    does\n        TARGET.internal = True\n")
+            Path(folder, "bmi.def").write_text(
+                "use kernel\ninternal def A0 halved\n    A0 / 2\npython A0 / A1\n    return A0 / A1\n"
+                "def bmi of A0\n    A0 halved\n")
+            self.run_lines(f"use {folder}/bmi")
+            self.assertEqual(self.run_lines("bmi of 10"), 5)  # its own def sees it, from here too
+            with self.assertRaisesRegex(DefException, "unknown name '10 halved'"):
+                self.run_lines("10 halved")
 
 
 class TestJavaScript(DefTest):
     def setUp(self):
         super().setUp()
-        self.run_lines("use javascript")
+        self.run_lines("use language/javascript")
 
     def test_arguments_are_javascript_values(self):
-        self.run_lines("def javascript greet A0", "    alert(A0)")
+        self.run_lines("javascript greet A0", "    alert(A0)")
         self.assertEqual(self.run_lines('greet "Sam"'), 'alert("Sam")')
         self.assertEqual(self.run_lines("greet [1, 2]"), "alert([1, 2])")
 
     def test_a_value_cannot_end_the_script(self):
-        self.run_lines("def javascript greet A0", "    alert(A0)")
+        self.run_lines("javascript greet A0", "    alert(A0)")
         self.assertEqual(self.run_lines('greet "</script>"'), 'alert("<\\/script>")')
 
     def test_javascript_comments_stay_in_the_body(self):
-        self.run_lines("def javascript note", "    // keep me", "    go()")
+        self.run_lines("javascript note", "    // keep me", "    go()")
         self.assertEqual(self.run_lines("note"), "// keep me\ngo()")
 
     def test_a_view_runs_its_script(self):
@@ -1167,9 +1276,9 @@ class TestIndent(unittest.TestCase):
     def setUp(self):
         self.said = []
         self.e = Execute(output=lambda value: self.said.append(value))
-        self.lines("def python say A0", "    self.say(A0)",
-                   "def python A0 > A1 ?", "    self.answer = number(A0) > number(A1)",
-                   "def python otherwise ?", "    self.answer = not self.answer")
+        self.lines("python say A0", "    self.say(A0)",
+                   "python A0 > A1 ?", "    self.answer = number(A0) > number(A1)",
+                   "python otherwise ?", "    self.answer = not self.answer")
         self.said.clear()
 
     def lines(self, *lines):
@@ -1242,14 +1351,14 @@ class TestTextPatterns(unittest.TestCase):
 
     def test_a_text_argument_matches_only_text(self):
         e = Execute()
-        self.run_lines(e, 'def python shout "A0"', "    return A0.upper()")
+        self.run_lines(e, 'python shout "A0"', "    return A0.upper()")
         self.assertEqual(e.run('shout "hi"'), "HI")
         with self.assertRaises(DefException):
             e.run("shout 5")
 
     def test_joined_text_binds_by_order(self):
-        join = ['def python A0 "A1" A2', 'def python "A0" A1', 'def python A0 "A1"', '    return "".join(as_text(v) for v in a)']
-        plus = ["def python A0 + A1", "    return number(A0) + number(A1)"]
+        join = ['python A0 "A1" A2', 'python "A0" A1', 'python A0 "A1"', '    return "".join(as_text(v) for v in a)']
+        plus = ["python A0 + A1", "    return number(A0) + number(A1)"]
         made_after = Execute()
         self.run_lines(made_after, *join, *plus)
         self.assertEqual(made_after.run('"x = " 2 + 3'), "x = 5")
@@ -1281,7 +1390,7 @@ class TestCheck(unittest.TestCase):
     def test_the_errors_a_line_can_have(self):
         found = self.problems(
             "use core\nuse nothing\nsay y\nsay \"open\nrepeat 2 times: say z\n"
-            "def python broken A0\n    return (A0\n")
+            "python broken A0\n    return (A0\n")
         lines = {line for line, _ in found}
         self.assertEqual(lines, {2, 3, 4, 5, 6})
         self.assertIn("unknown name 'z'", dict(found)[5])

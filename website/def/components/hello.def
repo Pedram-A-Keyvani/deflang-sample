@@ -1,6 +1,6 @@
-use html
-use javascript
-use css
+use language/html
+use language/javascript
+use language/css
 
 argument is A
 comment is //
@@ -8,7 +8,7 @@ comment is //
 // Asks for a name and shows def-lang's greeting.
 // Example: serve site page at "/"
 //          → GET /hello answers a page containing <h1>Say hello</h1>
-def html hello view
+html hello view
     <view path="/hello" title="Say hello">
         <style def="hello style"></style>
         <h1>Say hello</h1>
@@ -24,7 +24,7 @@ def html hello view
 // While the visitor types, says how many characters the name may still have. It happens in the browser on each key: def-lang on the server only hears about the name when the form is sent.
 // Example: serve site page at "/"
 //          → GET /hello answers a page containing input.maxLength - input.value.length
-def javascript count the characters left
+javascript count the characters left
     // the limit is the input's maxlength; the browser keeps to it
     const input = view.querySelector('input[name="name"]');
     const hint = view.querySelector('.hint');
@@ -36,7 +36,7 @@ def javascript count the characters left
 // How the hello view looks: the hint under the name is small and grey, and the greeting is larger. It only styles this view.
 // Example: serve site page at "/"
 //          → GET /hello answers a page containing .hint { color: var(--muted)
-def css hello style
+css hello style
     .hint {
         color: var(--muted);
         font-size: .9rem;

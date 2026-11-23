@@ -1,5 +1,5 @@
-use html
-use css
+use language/html
+use language/css
 
 argument is A
 comment is //
@@ -7,7 +7,7 @@ comment is //
 // The front page: counts the visit and shows the time.
 // Example: serve site page at "/"
 //          → GET / answers a page containing <h1>Served by def-lang</h1>
-def html home view
+html home view
     <view path="/" title="Served by def-lang" loads="/api/visit">
         <style def="home style"></style>
         <h1>Served by def-lang</h1>
@@ -19,7 +19,7 @@ def html home view
 // How the home view looks: the visit count stands out. It only styles this view.
 // Example: serve site page at "/"
 //          → GET / answers a page containing strong { color: var(--accent); }
-def css home style
+css home style
     strong {
         color: var(--accent);
     }

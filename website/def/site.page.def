@@ -1,5 +1,5 @@
-use html
-use css
+use language/html
+use language/css
 
 argument is A
 comment is //
@@ -7,7 +7,7 @@ comment is //
 // This website's one page: its name and links at the top, every view (shown inside <main>, where their templates are), the site's style, and the script that switches views. Each element with def="..." gets that def's HTML.
 // Example: serve site page at "/"
 //          → GET /bmi answers a page containing <header><strong>def-lang</strong><nav def="site nav">
-def html site page
+html site page
     <!doctype html>
     <html lang="en">
     <head>
@@ -31,7 +31,7 @@ def html site page
 // How the whole site looks: the colours (light and dark), the header, and the headings, links, forms and buttons every view uses. A view's own look is in its view file.
 // Example: serve site page at "/"
 //          → GET / answers a page containing --accent: #2f5d50
-def css site style
+css site style
     :root { --bg: #f6f5f2; --fg: #222; --muted: #666; --line: #ccc; --accent: #2f5d50; --accent-fg: #fff; --error: #a33; }
     @media (prefers-color-scheme: dark) {
       :root { --bg: #1b1d1c; --fg: #e6e6e3; --muted: #a0a3a0; --line: #444; --accent: #6fb39d; --accent-fg: #102019; --error: #ff8a80; }

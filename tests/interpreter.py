@@ -41,13 +41,13 @@ SAMPLES = HERE.parent
 
 
 def library(name: str) -> Path:
-    """The folder of a library of deflang-lib: core, html (language/html), web, ..."""
+    """The folder of a library of deflang-lib: core, language, modifier, web, ..."""
     return LIBRARIES[name][0]
 
 
 def link_libraries(program, *names):
     """Give a test program deflang-lib's libraries, used where they are."""
-    names = names or ("core", "web", "html", "javascript", "css")
+    names = names or ("core", "modifier", "language", "web")
     Path(program, "libraries.toml").write_text("".join(f'{n} = {{ from = "{library(n)}", link = true }}\n' for n in names))
 
 

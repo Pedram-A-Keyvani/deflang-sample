@@ -1,4 +1,5 @@
 # The libraries of this program, and where they come from. Written by
 # `python -m deflang install`; run it with no arguments to install them all again.
 
-core = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#core", version = "0.1.1", global = true }
+core = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#core", version = "0.2.0", global = true }
+modifier = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#modifier", version = "0.1.0", global = true }

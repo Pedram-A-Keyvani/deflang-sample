@@ -1,5 +1,5 @@
-use html
-use css
+use language/html
+use language/css
 
 argument is A
 comment is //
@@ -7,7 +7,7 @@ comment is //
 // The links at the top of every view. The page puts them in its <nav def="site nav">.
 // Example: serve site page at "/"
 //          → GET / answers a page containing <a href="/bmi">BMI</a>
-def html site nav
+html site nav
     <style def="site nav style"></style>
     <a href="/">Home</a>
     <a href="/hello">Hello</a>
@@ -16,7 +16,7 @@ def html site nav
 // How the links look: grey in a row, and the one for the open view underlined.
 // Example: serve site page at "/"
 //          → GET / answers a page containing nav a[aria-current]
-def css site nav style
+css site nav style
     nav {
         display: flex;
         gap: 1rem;

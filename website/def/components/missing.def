@@ -1,5 +1,5 @@
-use html
-use css
+use language/html
+use language/css
 
 argument is A
 comment is //
@@ -7,7 +7,7 @@ comment is //
 // Shown for an address the app doesn't know (path="*" means any other address).
 // Example: serve site page at "/"
 //          → GET /nowhere answers a page containing <h1>You are lost</h1>
-def html missing view
+html missing view
     <view path="*" title="Not found">
         <style def="missing style"></style>
         <h1>You are lost</h1>
@@ -17,7 +17,7 @@ def html missing view
 // How the missing view looks: centred, with a big heading. It only styles this view.
 // Example: serve site page at "/"
 //          → GET /nowhere answers a page containing h1 { font-size: 3rem; }
-def css missing style
+css missing style
     & {
         text-align: center;
     }
