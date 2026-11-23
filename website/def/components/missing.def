@@ -14,7 +14,7 @@ html missing view
         <p>Do you need help? <a href="/">Yes, navigate me home</a>.</p>
     </view>
 
-// How the missing view looks: centred, with a big heading. It only styles this view.
+// How the missing view looks: centered, with a big heading. It only styles this view.
 // Example: serve site page at "/"
 //          → GET /nowhere answers a page containing h1 { font-size: 3rem; }
 css missing style

@@ -13,7 +13,7 @@ html site nav
     <a href="/hello">Hello</a>
     <a href="/bmi">BMI</a>
 
-// How the links look: grey in a row, and the one for the open view underlined.
+// How the links look: gray in a row, and the one for the open view underlined.
 // Example: serve site page at "/"
 //          → GET / answers a page containing nav a[aria-current]
 css site nav style

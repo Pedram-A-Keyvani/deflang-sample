@@ -3,17 +3,17 @@ comment is //
 
 // BMI is weight (kg) divided by height (m) squared
 
-// A height in metres. A number over 3 can only be centimetres, so it is divided by 100.
-// Example: 175 as metres
+// A height in meters. A number over 3 can only be centimeters, so it is divided by 100.
+// Example: 175 as meters
 //          → 1.75
-def A0 as metres
+def A0 as meters
     A0 / 100 if A0 > 3 otherwise A0
 
 // The BMI for a weight in kg and a height in m or cm, to one decimal.
 // Example: bmi of 70 and 175
 //          → 22.9
 def bmi of A0 and A1
-    A0 / A1 as metres squared rounded to 1 place
+    A0 / A1 as meters squared rounded to 1 place
 
 // "underweight", "healthy" or "overweight" for a BMI.
 // Example: verdict for 22.9

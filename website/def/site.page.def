@@ -28,7 +28,7 @@ html site page
     </body>
     </html>
 
-// How the whole site looks: the colours (light and dark), the header, and the headings, links, forms and buttons every view uses. A view's own look is in its view file.
+// How the whole site looks: the colors (light and dark), the header, and the headings, links, forms and buttons every view uses. A view's own look is in its view file.
 // Example: serve site page at "/"
 //          → GET / answers a page containing --accent: #2f5d50
 css site style

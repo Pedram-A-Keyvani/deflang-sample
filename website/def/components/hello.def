@@ -33,7 +33,7 @@ javascript count the characters left
         hint.textContent = left + (left === 1 ? ' character' : ' characters') + ' left';
     });
 
-// How the hello view looks: the hint under the name is small and grey, and the greeting is larger. It only styles this view.
+// How the hello view looks: the hint under the name is small and gray, and the greeting is larger. It only styles this view.
 // Example: serve site page at "/"
 //          → GET /hello answers a page containing .hint { color: var(--muted)
 css hello style

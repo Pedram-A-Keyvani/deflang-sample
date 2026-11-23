@@ -39,7 +39,7 @@ css bmi style
 def bmi
     weight is query "weight"
     height is query "height"
-    // a height over 3 can only be centimetres
+    // a height over 3 can only be centimeters
     height is height / 100 if height > 3 otherwise height
     weight / height squared rounded to 1 place
 

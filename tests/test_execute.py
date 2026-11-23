@@ -1051,7 +1051,7 @@ class TestPackages(unittest.TestCase):
         self.assertEqual(len(said), 10)
         self.assertEqual(said[2], "3 x 7 = 21")
 
-    def test_website_bmi_accepts_metres_and_centimetres(self):
+    def test_website_bmi_accepts_meters_and_centimeters(self):
         e = Execute(output=lambda value: None)
         e.program_dir = SAMPLES / "website"
         for line in ["use core", "use web/server", "use language/html", "use language/css", "use def/components/bmi"]:
@@ -1183,7 +1183,7 @@ class TestKernel(unittest.TestCase):
         self.assertIn("upper", self.e["language"])
         for lines, message in [
             (["language two words"], "an entry is its kind and a one-word name"),
-            (["language odd", "    colour red"], "language odd has no field 'colour' \\(its fields are: does, editor, flags\\)"),
+            (["language odd", "    color red"], "language odd has no field 'color' \\(its fields are: does, editor, flags\\)"),
             (["modifier odd", "    applies to everything"], "applies to definition or name, not everything"),
             (["statement odd", "        words odd"], "the fields of statement odd are one level in"),
         ]:
@@ -1250,8 +1250,8 @@ class TestTheTree(unittest.TestCase):
     def test_its_keys(self):
         self.assertEqual(sorted(self.e.keys()), ["aliases", "answer", "definitions", "file", "files", "flag", "language",
                                                  "modifier", "program", "shared", "statement", "store", "variables"])
-        with self.assertRaisesRegex(DefException, "the kernel has no 'colour'"):
-            self.e["colour"]
+        with self.assertRaisesRegex(DefException, "the kernel has no 'color'"):
+            self.e["color"]
 
     def test_a_body_reads_and_changes_it(self):
         self.run_lines("python[written] A0 is A1", "    self['variables'][A0] = self.run(A1)",
