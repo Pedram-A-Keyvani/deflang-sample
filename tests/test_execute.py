@@ -1131,7 +1131,7 @@ class TestLanguages(DefTest):
             self.run_lines("nothing")
 
     def test_a_built_in_entry_is_not_declared_again(self):
-        with self.assertRaisesRegex(DefException, "language python is there already \\(built in\\)"):
+        with self.assertRaisesRegex(DefException, "language python is built in: it can't be replaced"):
             self.run_lines("language python")
 
 
@@ -1183,7 +1183,7 @@ class TestKernel(unittest.TestCase):
         self.assertIn("upper", self.e["language"])
         for lines, message in [
             (["language two words"], "an entry is its kind and a one-word name"),
-            (["language odd", "    color red"], "language odd has no field 'color' \\(its fields are: does, editor, flags\\)"),
+            (["language odd", "    color red"], "language odd has no field 'color' \\(its fields are: does, editor, flags, replaces\\)"),
             (["modifier odd", "    applies to everything"], "applies to definition or name, not everything"),
             (["statement odd", "        words odd"], "the fields of statement odd are one level in"),
         ]:
@@ -1220,6 +1220,28 @@ class TestKernel(unittest.TestCase):
             self.run_lines("internal visits is 4")
         with self.assertRaisesRegex(DefException, "shared applies to a name"):
             self.run_lines("shared def x", "    1")
+
+    def test_an_entry_is_replaced_only_with_replaces(self):
+        with tempfile.TemporaryDirectory() as folder:
+            Path(folder, "loud.def").write_text("language loud\n    does\n        return BODY.upper()\n")
+            entry = "// Louder.\nlanguage loud\n{}    does\n        return BODY.upper() + '!'\n"
+            self.e.program_dir = Path(folder)
+            self.run_lines("use loud")
+            for replaces, message in [
+                ("", "main.def:2: language loud is there already \\(declared in loud.def\\): to replace it, write `replaces loud` under `language loud`"),
+                ("    replaces main\n", "main.def:3: language loud was declared in loud, not in main: replaces loud"),
+            ]:
+                Path(folder, "main.def").write_text(entry.format(replaces))
+                with self.subTest(replaces), self.assertRaisesRegex(DefException, message):
+                    self.run_lines(f"use {folder}/main")
+                self.e._imported.discard(Path(folder, "main.def").resolve())
+            self.assertEqual(self.run_lines("loud hi", "    hi", "hi"), "HI")  # still the first one
+            Path(folder, "main.def").write_text(entry.format("    replaces loud\n"))
+            self.run_lines(f"use {folder}/main")
+            self.assertEqual(self.run_lines("loud hey", "    hey", "hey"), "HEY!")
+            self.assertEqual(self.run_lines("hi"), "HI!")  # a def made before it runs with it too
+        with self.assertRaisesRegex(DefException, "language odd replaces nothing"):
+            self.run_lines("language odd", "    replaces core")
 
     def test_an_internal_def_is_seen_only_by_its_file(self):
         with tempfile.TemporaryDirectory() as folder:
