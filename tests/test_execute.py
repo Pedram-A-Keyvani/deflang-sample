@@ -476,13 +476,13 @@ class TestWeb(unittest.TestCase):
         self.thread = threading.Thread(target=self.e.run, args=("start the server",), daemon=True)
         self.thread.start()
         for _ in range(100):
-            if "server" in self.e.store("web"):
+            if "server" in self.e["store"]["web"]:
                 break
             threading.Event().wait(0.02)
-        self.base = f"http://127.0.0.1:{self.e.store("web")['server'].server_address[1]}"
+        self.base = f"http://127.0.0.1:{self.e["store"]["web"]['server'].server_address[1]}"
 
     def tearDown(self):
-        self.e.store("web")["server"].shutdown()
+        self.e["store"]["web"]["server"].shutdown()
         self.thread.join(5)
         self.folder.cleanup()
 
@@ -518,7 +518,7 @@ class TestWeb(unittest.TestCase):
     def test_each_request_has_its_own_variables(self):
         self.assertEqual(json.loads(self.get("/api/double?n=21")[1]), {"doubled": 42})
         # doubled was that request's own
-        self.assertNotIn("doubled", self.e.variables)
+        self.assertNotIn("doubled", self.e["variables"])
         self.e.run('api "/api/left" sends doubled')
         self.assertEqual(self.get("/api/left")[0], 400)
 
@@ -546,7 +546,7 @@ class TestVariables(DefTest):
     def test_a_defs_variables_are_its_own(self):
         self.run_lines("def greet", '    name is "Sam"', '    "hi " name')
         self.assertEqual(self.run_lines("greet"), "hi Sam")
-        self.assertNotIn("name", self.e.variables)
+        self.assertNotIn("name", self.e["variables"])
 
     def test_a_def_reads_the_programs_variables(self):
         self.run_lines("rate is 2", "def doubled A0", "    A0 * rate")
@@ -568,7 +568,7 @@ class TestVariables(DefTest):
         self.assertEqual(self.run_lines('name or stranger "Sam"'), "Sam")
         self.run_lines("def shopping", '    add "milk" to list', '    add "tea" to list', "    count of list")
         self.assertEqual(self.run_lines("shopping"), 2)
-        self.assertNotIn("list", self.e.variables)
+        self.assertNotIn("list", self.e["variables"])
 
     def test_a_as_written_def_runs_where_its_code_was_written(self):
         # `the A0` gets the words, so it sees the caller's own variables
@@ -705,7 +705,7 @@ class TestSettings(unittest.TestCase):
 
     def tearDown(self):
         if self.thread:
-            self.e.store("web")["server"].shutdown()
+            self.e["store"]["web"]["server"].shutdown()
             self.thread.join(5)
         shutil.rmtree(self.folder)
 
@@ -719,7 +719,7 @@ class TestSettings(unittest.TestCase):
     def start(self):
         self.thread = threading.Thread(target=self.e.run, args=("start the server",), daemon=True)
         self.thread.start()
-        self.wait(lambda: "server" in self.e.store("web"))
+        self.wait(lambda: "server" in self.e["store"]["web"])
 
     def wait(self, condition):
         for _ in range(200):
@@ -729,7 +729,7 @@ class TestSettings(unittest.TestCase):
         self.fail("it didn't happen: " + "; ".join(self.said))
 
     def port(self):
-        return self.e.store("web")["server"].server_address[1]
+        return self.e["store"]["web"]["server"].server_address[1]
 
     def get(self, path="/", port=None):
         with urllib.request.urlopen(f"http://127.0.0.1:{port or self.port()}{path}", timeout=5) as response:
@@ -1057,11 +1057,11 @@ class TestPackages(unittest.TestCase):
         for line in ["use core", "use web/server", "use language/html", "use language/css", "use def/components/bmi"]:
             e.run(line)
         for height in ["1.75", "175"]:
-            e._request = {"path": "/api/bmi", "query": {"weight": "70", "height": height}, "page": False}
+            e["store"]["web"]["request"] = {"path": "/api/bmi", "query": {"weight": "70", "height": height}, "page": False}
             self.assertEqual((e.run("bmi"), e.run("verdict")), (22.9, "healthy"), height)
         # its weight and height were the def's own
-        self.assertNotIn("weight", e.variables)
-        self.assertNotIn("height", e.variables)
+        self.assertNotIn("weight", e["variables"])
+        self.assertNotIn("height", e["variables"])
 
     def test_website_package_exists(self):
         package = SAMPLES / "website"
@@ -1082,10 +1082,10 @@ class TestLanguages(DefTest):
         self.assertEqual(self.run_lines('shout "sam"'), "HELLO SAM, HOW ARE YOU?")
 
     def test_html_is_imported(self):
-        self.assertNotIn("html", self.e.kernel["language"])  # not part of the core
+        self.assertNotIn("html", self.e["language"])  # not part of the core
         self.run_lines("use language/html", "html greeting A0", "    <p>Hello A0</p>")
         self.assertEqual(self.run_lines('greeting "<b>Sam</b>"'), "<p>Hello &lt;b&gt;Sam&lt;/b&gt;</p>")
-        self.assertIn("html", self.e.kernel["language"])
+        self.assertIn("html", self.e["language"])
 
     def test_an_element_gets_a_defs_html(self):
         self.run_lines("use language/html", "html links", "    <a href=\"/\">Home</a>",
@@ -1180,7 +1180,7 @@ class TestKernel(unittest.TestCase):
         self.run_lines("language upper", "    does", "        return fill(BODY, [as_text(v) for v in VAR]).upper()",
                        "upper shout A0", "    hi A0")
         self.assertEqual(self.run_lines('shout "sam"'), "HI SAM")
-        self.assertIn("upper", self.e.kernel["language"])
+        self.assertIn("upper", self.e["language"])
         for lines, message in [
             (["language two words"], "an entry is its kind and a one-word name"),
             (["language odd", "    colour red"], "language odd has no field 'colour' \\(its fields are: does, editor, flags\\)"),
@@ -1211,8 +1211,8 @@ class TestKernel(unittest.TestCase):
             self.run_lines("def[cache] fast")
 
     def test_modifiers(self):
-        self.run_lines("modifier shared", "    applies to name", "    does", "        self.share(TARGET)",
-                       "python[written] A0 is A1", "    self.variables[A0] = self.run(A1)",
+        self.run_lines("modifier shared", "    applies to name", "    does", "        self['files'][self['file']]['names'][TARGET] = (self['file'], TARGET)",
+                       "python[written] A0 is A1", "    self['variables'][A0] = self.run(A1)",
                        "shared visits is 3")
         self.assertEqual(self.run_lines("visits"), 3)
         self.run_lines("modifier internal", "    applies to definition", "    does", "        TARGET.internal = True")
@@ -1232,6 +1232,65 @@ class TestKernel(unittest.TestCase):
             self.assertEqual(self.run_lines("bmi of 10"), 5)  # its own def sees it, from here too
             with self.assertRaisesRegex(DefException, "unknown name '10 halved'"):
                 self.run_lines("10 halved")
+
+
+class TestTheTree(unittest.TestCase):
+    """The Python API: what the interpreter has is the kernel's tree, self[...]."""
+
+    def setUp(self):
+        self.said = []
+        self.e = Execute(output=lambda value: self.said.append(str(value)))
+
+    def run_lines(self, *lines):
+        result = None
+        for line in lines:
+            result = self.e.run(line)
+        return result
+
+    def test_its_keys(self):
+        self.assertEqual(sorted(self.e.keys()), ["aliases", "answer", "definitions", "file", "files", "flag", "language",
+                                                 "modifier", "program", "shared", "statement", "store", "variables"])
+        with self.assertRaisesRegex(DefException, "the kernel has no 'colour'"):
+            self.e["colour"]
+
+    def test_a_body_reads_and_changes_it(self):
+        self.run_lines("python[written] A0 is A1", "    self['variables'][A0] = self.run(A1)",
+                       "python[written] A0 means A1", "    self['aliases'][A0] = A1",
+                       "python count A0", "    self['store']['mine'].setdefault('n', 0)", "    self['store']['mine']['n'] += A0",
+                       "python A0 ?", "    self['answer'] = bool(A0)",
+                       "python A0 * A1", "    return A0 * A1")
+        self.run_lines("x is 2 * 3")
+        self.assertEqual(self.e["variables"]["x"], 6)
+        self.run_lines("twice means 2 *")
+        self.assertEqual(self.run_lines("twice 4"), 8)
+        self.run_lines("count 2", "count 3")
+        self.assertEqual(self.e["store"]["mine"], {"n": 5})
+        self.run_lines("0 ?")
+        self.assertIs(self.e["answer"], False)
+        self.assertEqual([d.source for d in self.e["definitions"]][:2], ["A0 is A1", "A0 means A1"])
+
+    def test_only_the_answer_is_set(self):
+        self.run_lines("python break it", "    self['variables'] = {}")
+        with self.assertRaisesRegex(DefException, "self\\['variables'\\] isn't replaced"):
+            self.run_lines("break it")
+
+    def test_a_files_place(self):
+        with tempfile.TemporaryDirectory() as folder:
+            Path(folder, "counter.def").write_text(
+                "comment is #\nindent 2\npython[written] A0 is A1\n  self['variables'][A0] = self.run(A1)\n"
+                "modifier shared\n  applies to name\n  does\n    here = self['file']\n"
+                "    self['files'][here]['names'][TARGET] = (here, TARGET)\nshared visits is 3\nlocal is 1\n")
+            self.e.program_dir = Path(folder)
+            self.run_lines("use visits from counter")
+            counter = Path(folder, "counter.def").resolve()
+            place = self.e["files"][counter]
+            self.assertEqual((place["comment"], place["argument"], place["indent"]), ("#", "A", 2))
+            self.assertEqual(place["variables"], {"local": 1})
+            self.assertEqual(place["names"], {"visits": (counter, "visits")})
+            self.assertEqual(self.e["shared"], {(counter, "visits"): 3})
+            self.assertEqual(self.e["files"][None]["names"], {"visits": (counter, "visits")})
+            self.assertEqual(self.run_lines("visits"), 3)
+            self.assertEqual(self.e["program"], Path(folder))
 
 
 class TestJavaScript(DefTest):
@@ -1277,8 +1336,8 @@ class TestIndent(unittest.TestCase):
         self.said = []
         self.e = Execute(output=lambda value: self.said.append(value))
         self.lines("python say A0", "    self.say(A0)",
-                   "python A0 > A1 ?", "    self.answer = number(A0) > number(A1)",
-                   "python otherwise ?", "    self.answer = not self.answer")
+                   "python A0 > A1 ?", "    self['answer'] = number(A0) > number(A1)",
+                   "python otherwise ?", "    self['answer'] = not self['answer']")
         self.said.clear()
 
     def lines(self, *lines):
