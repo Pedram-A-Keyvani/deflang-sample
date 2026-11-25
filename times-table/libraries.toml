@@ -2,4 +2,7 @@
 # `python -m deflang install`; run it with no arguments to install them all again.
 
 core = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#core", version = "0.2.0", global = true }
+flag = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#flag", version = "0.1.0", global = true }
+language = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#language", version = "0.1.0", global = true }
 modifier = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#modifier", version = "0.1.0", global = true }
+statement = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#statement", version = "0.1.0", global = true }

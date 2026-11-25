@@ -47,7 +47,9 @@ def library(name: str) -> Path:
 
 def link_libraries(program, *names):
     """Give a test program deflang-lib's libraries, used where they are."""
-    names = names or ("core", "modifier", "language", "web")
+    names = names or ("core", "language", "flag", "statement", "modifier", "web")
+    if "core" in names:  # and the libraries core uses, as `def-lang install` lists them
+        names = tuple(dict.fromkeys(names + ("language", "flag", "statement", "modifier")))
     Path(program, "libraries.toml").write_text("".join(f'{n} = {{ from = "{library(n)}", link = true }}\n' for n in names))
 
 
@@ -68,3 +70,22 @@ for toml in sorted(SAMPLES.glob("*/libraries.toml")):
                 (copies / ".gitignore").write_text("# copies made by `def-lang install`: run it to make them again\n*\n")
             shutil.rmtree(copies / name, ignore_errors=True)
             shutil.copytree(library(name), copies / name, ignore=shutil.ignore_patterns(".git", "__pycache__"))
+
+
+# the kernel's entries from deflang-lib that core uses first: the def language, its flags
+# and the statements; no words of core, no modifiers (a test can declare its own)
+KERNEL_ENTRIES = ["language/def", "flag/written", "flag/regex", "statement/comment", "statement/argument",
+                  "statement/indent", "statement/error", "statement/echo"]
+
+
+def bare(output=None):
+    """An interpreter with only the kernel's entries of deflang-lib: def, its flags and the
+    statements. The interpreter itself has only `python` and `use`."""
+    from deflang.execute import Execute
+    e = Execute(output=output)
+    e.program_dir = LIBRARY_PROGRAM
+    for name in KERNEL_ENTRIES:
+        e.run(f"use {name}")
+    e.program_dir = None  # as a new interpreter: its files are found from the folder it runs in
+    return e
+

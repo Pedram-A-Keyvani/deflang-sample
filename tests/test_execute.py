@@ -17,7 +17,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import interpreter  # noqa: E402  finds ../deflang and ../deflang-lib
-from interpreter import LIBRARY_PROGRAM, SAMPLES, library, link_libraries  # noqa: E402
+from interpreter import bare, LIBRARY_PROGRAM, SAMPLES, library, link_libraries  # noqa: E402
 
 from deflang.exception import DefException  # noqa: E402
 from deflang.execute import Execute  # noqa: E402
@@ -186,7 +186,7 @@ class TestDefinitions(DefTest):
         with tempfile.TemporaryDirectory() as folder:
             Path(folder, "inner.def").write_text("python half A0\n    return A0 / 2\n")
             Path(folder, "main.def").write_text("argument is X\nuse inner\npython twice X0\n    return X0 * 2\n")
-            e = Execute()
+            e = bare()
             e.run(f"use {Path(folder, 'main')}")
             self.assertEqual(e.run("half 4"), 2)   # inner.def wrote A0, not X0
             self.assertEqual(e.run("twice 4"), 8)  # main.def kept X after the import
@@ -195,7 +195,7 @@ class TestDefinitions(DefTest):
         with tempfile.TemporaryDirectory() as folder:
             Path(folder, "other.def").write_text("comment is #\n# a comment here\n")
             Path(folder, "main.def").write_text("use other\n// still a comment\n")
-            e = Execute()
+            e = bare()
             e.run(f"use {Path(folder, 'main')}")
             with self.assertRaises(DefException):
                 e.run("# not a comment out here")
@@ -207,7 +207,7 @@ class TestImport(unittest.TestCase):
             Path(folder, "lib").mkdir()
             Path(folder, "lib", "inner.def").write_text("def seven\n    7\n")
             Path(folder, "lib", "outer.def").write_text("use inner\n")
-            e = Execute()
+            e = bare()
             old = os.getcwd()
             os.chdir(folder)
             try:
@@ -217,18 +217,18 @@ class TestImport(unittest.TestCase):
             finally:
                 os.chdir(old)
             self.assertEqual(e.run("seven"), 7)
-            self.assertEqual(len(e.definitions), 1)
+            self.assertEqual(len([d for d in e.definitions if d.file and d.file.parent.name == "lib"]), 1)
 
     def test_missing_file(self):
         with self.assertRaisesRegex(DefException, "cannot use 'nothing'"):
-            Execute().run("use nothing")
+            bare().run("use nothing")
 
     def test_error_shows_file_and_line(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder, "bad.def")
             path.write_text("\n    stray\n")
             with self.assertRaisesRegex(DefException, r"bad\.def:2: indented line with no line above it"):
-                Execute().run(f"use {folder}/bad")
+                bare().run(f"use {folder}/bad")
 
 
 class TestGroups(DefTest):
@@ -260,7 +260,7 @@ class TestGroups(DefTest):
     def test_black_jack(self):
         program = (SAMPLES / "black-jack" / "main.def").read_text()
         for answers, expected in [(("10", "9"), "You win"), (("11", "11"), "You win"), (("13", "10"), "You lost")]:
-            e = Execute()
+            e = bare(output=lambda value: None)  # the echo line prints its line there
             e.program_dir = SAMPLES / "black-jack"  # its libraries.toml: core, global
             printed = []
             with mock.patch("builtins.input", side_effect=list(answers)):
@@ -584,7 +584,7 @@ class TestFileVariables(unittest.TestCase):
         link_libraries(folder, "core")
         for name, text in files.items():
             Path(folder, f"{name}.def").write_text(text)
-        e = Execute()
+        e = bare()
         e.program_dir = Path(folder)
         e.run("use core")
         return e
@@ -820,7 +820,7 @@ class TestLibraries(unittest.TestCase):
         self.global_folder = Path(tempfile.mkdtemp())
         self.env = mock.patch.dict(os.environ, {"DEFLANG_GLOBAL": str(self.global_folder)})
         self.env.start()
-        for name, inside in [("core", "core"), ("modifier", "modifier"), ("web", "web"), ("language", "language")]:
+        for name, inside in [("core", "core"), ("modifier", "modifier"), ("web", "web"), ("language", "language"), ("flag", "flag"), ("statement", "statement")]:
             shutil.copytree(library(name), self.repo / inside)
         git = lambda *args: subprocess.run(["git", "-C", str(self.repo), *args], check=True, capture_output=True)
         git("init", "--quiet")
@@ -856,7 +856,7 @@ class TestLibraries(unittest.TestCase):
 
     def test_from_git_into_the_project(self):
         # web's own libraries.toml lists ../language: it comes from the same repo
-        self.assertEqual(self.install(f"{self.url}#web"), ["web", "language"])
+        self.assertEqual(self.install(f"{self.url}#web"), ["web", "language", "flag", "core", "statement", "modifier"])
         self.assertTrue((self.program / "libraries" / "web" / "server.def").is_file())
         self.assertTrue((self.program / "libraries" / "language" / "javascript.def").is_file())
         self.assertIn(f'web = {{ from = "{self.url}#web", version = "{self.version("web")}" }}', self.listed())
@@ -880,7 +880,7 @@ class TestLibraries(unittest.TestCase):
         self.assertEqual(self.run_program("use core", "x is 2 + 3", "x squared"), 25)
 
     def test_global(self):
-        self.assertEqual(self.install(f"{self.url}#web", globally=True), ["web", "language"])
+        self.assertEqual(self.install(f"{self.url}#web", globally=True), ["web", "language", "flag", "core", "statement", "modifier"])
         self.assertTrue((self.global_folder / "web" / self.version("web") / "server.def").is_file())
         self.assertFalse((self.program / "libraries").exists())
         self.assertIn(f'web = {{ from = "{self.url}#web", version = "{self.version("web")}", global = true }}', self.listed())
@@ -890,7 +890,8 @@ class TestLibraries(unittest.TestCase):
     def test_a_local_library_is_linked(self):
         # core's own libraries.toml lists ../modifier: linked the same way
         shutil.copytree(library("core"), self.program / "my-libraries" / "core")
-        shutil.copytree(library("modifier"), self.program / "my-libraries" / "modifier")
+        for other in ("modifier", "language", "flag", "statement"):
+            shutil.copytree(library(other), self.program / "my-libraries" / other)
         self.install(self.program / "my-libraries" / "core", link=True)
         self.assertFalse((self.program / "libraries" / "core").exists())
         self.assertIn('core = { from = "my-libraries/core", link = true }', self.listed())
@@ -903,7 +904,7 @@ class TestLibraries(unittest.TestCase):
         self.install(f"{self.url}#web", globally=True)
         shutil.rmtree(self.program / "libraries")
         shutil.rmtree(self.global_folder / "web")
-        self.assertEqual(sorted(libraries.install_all(self.program, say=self.said.append)), ["core", "language", "modifier", "web"])
+        self.assertEqual(sorted(libraries.install_all(self.program, say=self.said.append)), ["core", "flag", "language", "modifier", "statement", "web"])
         self.assertTrue((self.global_folder / "web" / self.version("web")).is_dir())
         self.assertEqual(self.run_program("use core", "3 squared"), 9)
 
@@ -1025,7 +1026,7 @@ class TestPackages(unittest.TestCase):
             Path(folder, "def", "web.server.def").write_text((library("web") / "server.def").read_text())
             link_libraries(folder, "core")
             Path(folder, "pages", "hi.html").write_text("<p>{{ 1 + 1 }}</p>")
-            e = Execute()
+            e = bare()
             e.program_dir = Path(folder)
             e.run("use core")
             e.run("use def/web.server")  # found in the package's own def/ folder
@@ -1074,8 +1075,8 @@ class TestLanguages(DefTest):
     def test_a_language_of_your_own(self):
         self.run_lines(
             "language upper",
-            "    does",
-            "        return fill(BODY, [as_text(value) for value in VAR]).upper()",
+            "    does in python",
+            "        return self['entry']['body'].upper()",
             "upper shout A0",
             "    hello A0, how are you?",
         )
@@ -1113,14 +1114,14 @@ class TestLanguages(DefTest):
             self.run_lines('accent "red; } body { display: none"')
 
     def test_python_is_built_in(self):
-        e = Execute()
+        e = bare()
         e.run("python seven")
         e.run("    return 7")
         self.assertEqual(e.run("seven"), 7)
 
     def test_without_a_declaration_it_is_a_pattern_word(self):
         # `def html thing`: a def-lang def whose pattern is `html thing`
-        e = Execute()
+        e = bare()
         e.run("def html thing")
         e.run("    3")
         self.assertEqual(e.run("html thing"), 3)
@@ -1140,7 +1141,7 @@ class TestKernel(unittest.TestCase):
 
     def setUp(self):
         self.said = []
-        self.e = Execute(output=lambda value: self.said.append(str(value)))
+        self.e = bare(output=lambda value: self.said.append(str(value)))
         self.run_lines("python say A0", "    self.say(A0)")
 
     def run_lines(self, *lines):
@@ -1158,8 +1159,8 @@ class TestKernel(unittest.TestCase):
     def test_the_flag_errors(self):
         for line, message in [
             ("def[] x", "no flags in def\\[\\]"),
-            ("def[as written] x", "unknown flag 'as' \\(the flags are: regex, written\\)"),
-            ("def[regex 3] x", "flag regex takes no value"),
+            ("def[as written] x", "unknown flag 'as written' \\(the flags are: regex, written\\)"),
+            ("def[regex 3] x", "flag regex is written `regex`, not `regex 3`"),
         ]:
             with self.subTest(line), self.assertRaisesRegex(DefException, message):
                 self.run_lines(line)
@@ -1177,54 +1178,89 @@ class TestKernel(unittest.TestCase):
             self.run_lines("python two A0")
 
     def test_an_entry_and_its_fields(self):
-        self.run_lines("language upper", "    does", "        return fill(BODY, [as_text(v) for v in VAR]).upper()",
+        self.run_lines("language upper", "    does in python", "        return self['entry']['body'].upper()",
                        "upper shout A0", "    hi A0")
         self.assertEqual(self.run_lines('shout "sam"'), "HI SAM")
         self.assertIn("upper", self.e["language"])
         for lines, message in [
             (["language two words"], "an entry is its kind and a one-word name"),
-            (["language odd", "    color red"], "language odd has no field 'color' \\(its fields are: does, editor, flags, replaces\\)"),
-            (["modifier odd", "    applies to everything"], "applies to definition or name, not everything"),
+            (["language odd", "    color red"], "language odd has no field 'color' \\(its fields are: does, editor, replaces\\)"),
+            (["modifier odd", "    does"], "`does` says the language of its body: does in def, does in python"),
+            (["modifier odd", "    does in nothing"], "does in nothing: there is no language nothing yet"),
+            (["modifier odd", "    applies to name"], "modifier odd has no field 'applies'"),
             (["statement odd", "        words odd"], "the fields of statement odd are one level in"),
         ]:
             with self.subTest(lines[-1]), self.assertRaisesRegex(DefException, message):
                 self.run_lines(*lines)
 
-    def test_a_language_takes_only_its_flags(self):
-        self.run_lines("language shout", "    does", "        return BODY.upper()")
-        with self.assertRaisesRegex(DefException, "shout takes no flag 'written'"):
-            self.run_lines("shout[written] hi")
-        self.run_lines("language loud", "    flags written", "    does", "        return BODY.upper()")
-        self.run_lines("loud[written] hey", "    hey")
-        self.assertEqual(self.run_lines("hey"), "HEY")
+    def test_every_language_takes_every_flag(self):
+        self.run_lines("language shout", "    does in python", "        return self['entry']['body'].upper()",
+                       "shout[written] hey A0", "    hey A0")
+        self.assertEqual(self.run_lines("hey 1 + 2"), "HEY 1 + 2")  # its argument's words
 
     def test_a_statement_of_a_library(self):
-        self.run_lines("statement greet", "    words greet A0", "    does", "        self.say('hi ' + a[0].strip())")
+        self.run_lines("statement greet", "    words greet A0", "    does in python", "        self.say('hi ' + a[0].strip())")
         self.run_lines("greet Pedram")
         self.assertEqual(self.said, ["hi Pedram"])
 
     def test_a_flag_of_a_library(self):
-        self.run_lines("flag cache", "    takes number", "    does", "        TARGET.cache = int(VALUE)",
-                       "def[cache 60] slow", "    1")
+        # written by its words: `does` gets the words in their places
+        self.run_lines("flag cache", "    words cache A0 seconds", "    does in python",
+                       "        self['entry']['definition'].cache = int(a[0])",
+                       "python[cache 60 seconds, written] slow", "    return 1")
         self.assertEqual([d.cache for d in self.e.definitions if d.source == "slow"], [60])
-        with self.assertRaisesRegex(DefException, "flag cache takes a number"):
-            self.run_lines("def[cache] fast")
+        self.assertEqual([d.flags for d in self.e.definitions if d.source == "slow"], [{"cache": ["60"], "written": []}])
+        with self.assertRaisesRegex(DefException, "flag cache is written `cache A0 seconds`, not `cache`"):
+            self.run_lines("python[cache] fast")
+
+    def test_flags_on_does(self):
+        # `does in def[written]`: its body gets the words as they are written
+        self.run_lines("statement says", "    words says A0", "    does in def[written]", "        show A0",
+                       "statement quotes", "    words quotes A0", "    does in def", "        show A0",
+                       "says hi there", "quotes hi there")
+        self.assertEqual(self.said, ["hi there", '"hi there"'])
 
     def test_modifiers(self):
-        self.run_lines("modifier shared", "    applies to name", "    does", "        self['files'][self['file']]['names'][TARGET] = (self['file'], TARGET)",
+        # written in def, with the core library's words; the interpreter knows what each
+        # stands in front of: a name (shared) or a definition (internal)
+        self.run_lines("modifier shared", "    does in def", "        set name to shared",
                        "python[written] A0 is A1", "    self['variables'][A0] = self.run(A1)",
                        "shared visits is 3")
         self.assertEqual(self.run_lines("visits"), 3)
-        self.run_lines("modifier internal", "    applies to definition", "    does", "        TARGET.internal = True")
-        with self.assertRaisesRegex(DefException, "internal applies to a definition"):
+        self.run_lines("modifier internal", "    does in def", "        set seen by to the file")
+        with self.assertRaisesRegex(DefException, "set seen by to the file: a modifier here sets name to shared"):
             self.run_lines("internal visits is 4")
-        with self.assertRaisesRegex(DefException, "shared applies to a name"):
+        with self.assertRaisesRegex(DefException, "set name to shared: a modifier here sets arguments to as written, "):
             self.run_lines("shared def x", "    1")
+
+    def test_entries_written_in_def(self):
+        self.run_lines("flag raw", "    does in def", "        set arguments to as written",
+                       "python[raw] the words of A0", "    return A0",
+                       "language loud", "    does in def", "        set body to upper-case",
+                       "loud greeting for A0", "    hello A0",
+                       "statement greet", "    words greet A0", "    does in def[written]", "        show A0")
+        self.assertEqual(self.run_lines("the words of 1 + 2"), "1 + 2")
+        self.assertEqual(self.run_lines('greeting for "sam"'), "HELLO SAM")
+        self.run_lines("greet Pedram")
+        self.assertEqual(self.said, ["Pedram"])
+
+    def test_set(self):
+        # outside an entry's `does`, a variable; inside, what the entry acts on
+        self.run_lines("python A0 + A1", "    return A0 + A1", "set total to 2 + 3")
+        self.assertEqual(self.e["variables"]["total"], 5)
+        self.run_lines("flag odd", "    does in def", "        set colors to blue")
+        with self.assertRaisesRegex(DefException, "set colors to blue: a flag here sets arguments to as written, arguments to values, "
+                                                  "pattern to readable, pattern to regex, seen by to every file, seen by to the file"):
+            self.run_lines("python[odd] x", "    return 1")
+        self.run_lines("statement tabs", "    words tabs of A0", "    does in def[written]", "        set indent to A0", "tabs of 2")
+        self.assertEqual(self.e["files"][None]["indent"], 2)
+        with self.assertRaisesRegex(DefException, "indent is a whole number, 1 or more: two"):
+            self.run_lines("tabs of two")
 
     def test_an_entry_is_replaced_only_with_replaces(self):
         with tempfile.TemporaryDirectory() as folder:
-            Path(folder, "loud.def").write_text("language loud\n    does\n        return BODY.upper()\n")
-            entry = "// Louder.\nlanguage loud\n{}    does\n        return BODY.upper() + '!'\n"
+            Path(folder, "loud.def").write_text("language loud\n    does in python\n        return self['entry']['body'].upper()\n")
+            entry = "// Louder.\nlanguage loud\n{}    does in python\n        return self['entry']['body'].upper() + '!'\n"
             self.e.program_dir = Path(folder)
             self.run_lines("use loud")
             for replaces, message in [
@@ -1245,10 +1281,9 @@ class TestKernel(unittest.TestCase):
 
     def test_an_internal_def_is_seen_only_by_its_file(self):
         with tempfile.TemporaryDirectory() as folder:
-            Path(folder, "kernel.def").write_text(
-                "modifier internal\n    applies to definition\n    does\n        TARGET.internal = True\n")
+            Path(folder, "private.def").write_text("modifier internal\n    does in def\n        set seen by to the file\n")
             Path(folder, "bmi.def").write_text(
-                "use kernel\ninternal def A0 halved\n    A0 / 2\npython A0 / A1\n    return A0 / A1\n"
+                "use private\ninternal def A0 halved\n    A0 / 2\npython A0 / A1\n    return A0 / A1\n"
                 "def bmi of A0\n    A0 halved\n")
             self.run_lines(f"use {folder}/bmi")
             self.assertEqual(self.run_lines("bmi of 10"), 5)  # its own def sees it, from here too
@@ -1261,7 +1296,7 @@ class TestTheTree(unittest.TestCase):
 
     def setUp(self):
         self.said = []
-        self.e = Execute(output=lambda value: self.said.append(str(value)))
+        self.e = bare(output=lambda value: self.said.append(str(value)))
 
     def run_lines(self, *lines):
         result = None
@@ -1270,8 +1305,8 @@ class TestTheTree(unittest.TestCase):
         return result
 
     def test_its_keys(self):
-        self.assertEqual(sorted(self.e.keys()), ["aliases", "answer", "definitions", "file", "files", "flag", "language",
-                                                 "modifier", "program", "shared", "statement", "store", "variables"])
+        self.assertEqual(sorted(self.e.keys()), ["aliases", "answer", "definitions", "entry", "file", "files", "flag", "language",
+                                                 "mode", "modifier", "program", "shared", "statement", "store", "variables"])
         with self.assertRaisesRegex(DefException, "the kernel has no 'color'"):
             self.e["color"]
 
@@ -1289,7 +1324,8 @@ class TestTheTree(unittest.TestCase):
         self.assertEqual(self.e["store"]["mine"], {"n": 5})
         self.run_lines("0 ?")
         self.assertIs(self.e["answer"], False)
-        self.assertEqual([d.source for d in self.e["definitions"]][:2], ["A0 is A1", "A0 means A1"])
+        sources = [d.source for d in self.e["definitions"]]
+        self.assertLess(sources.index("A0 is A1"), sources.index("A0 means A1"))  # in the order made
 
     def test_only_the_answer_is_set(self):
         self.run_lines("python break it", "    self['variables'] = {}")
@@ -1300,8 +1336,8 @@ class TestTheTree(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             Path(folder, "counter.def").write_text(
                 "comment is #\nindent 2\npython[written] A0 is A1\n  self['variables'][A0] = self.run(A1)\n"
-                "modifier shared\n  applies to name\n  does\n    here = self['file']\n"
-                "    self['files'][here]['names'][TARGET] = (here, TARGET)\nshared visits is 3\nlocal is 1\n")
+                "modifier shared\n  does in python\n    here, name = self['file'], self['entry']['name']\n"
+                "    self['files'][here]['names'][name] = (here, name)\nshared visits is 3\nlocal is 1\n")
             self.e.program_dir = Path(folder)
             self.run_lines("use visits from counter")
             counter = Path(folder, "counter.def").resolve()
@@ -1356,7 +1392,7 @@ class TestIndent(unittest.TestCase):
 
     def setUp(self):
         self.said = []
-        self.e = Execute(output=lambda value: self.said.append(value))
+        self.e = bare(output=lambda value: self.said.append(value))
         self.lines("python say A0", "    self.say(A0)",
                    "python A0 > A1 ?", "    self['answer'] = number(A0) > number(A1)",
                    "python otherwise ?", "    self['answer'] = not self['answer']")
@@ -1431,7 +1467,7 @@ class TestTextPatterns(unittest.TestCase):
         return result
 
     def test_a_text_argument_matches_only_text(self):
-        e = Execute()
+        e = bare()
         self.run_lines(e, 'python shout "A0"', "    return A0.upper()")
         self.assertEqual(e.run('shout "hi"'), "HI")
         with self.assertRaises(DefException):
@@ -1440,17 +1476,17 @@ class TestTextPatterns(unittest.TestCase):
     def test_joined_text_binds_by_order(self):
         join = ['python A0 "A1" A2', 'python "A0" A1', 'python A0 "A1"', '    return "".join(as_text(v) for v in a)']
         plus = ["python A0 + A1", "    return number(A0) + number(A1)"]
-        made_after = Execute()
+        made_after = bare()
         self.run_lines(made_after, *join, *plus)
         self.assertEqual(made_after.run('"x = " 2 + 3'), "x = 5")
-        made_before = Execute()
+        made_before = bare()
         self.run_lines(made_before, *plus, *join)
         with self.assertRaisesRegex(DefException, "expected a number"):
             made_before.run('"x = " 2 + 3')  # ("x = " 2) + 3
 
     def test_text_joins_here_is_gone(self):
         with self.assertRaisesRegex(DefException, "unknown name"):
-            Execute().run("text joins here")
+            bare().run("text joins here")
 
 
 class TestCheck(unittest.TestCase):
