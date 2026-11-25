@@ -527,6 +527,11 @@ class TestWeb(unittest.TestCase):
         self.get("/")
         self.assertEqual(json.loads(self.get("/api/echo")[1]), {"visits": 2})
 
+    def test_a_page_that_fails_is_a_500_page(self):
+        # its message, escaped, so it shows as text
+        self.e.run('page "/broken" shows fail with "<b>no</b>"')
+        self.assertEqual(self.get("/broken"), (500, "<h1>500</h1><pre>&lt;b&gt;no&lt;/b&gt;</pre>"))
+
     def test_api_errors_are_json(self):
         status, body = self.get("/api/broken")
         self.assertEqual((status, json.loads(body)), (400, {"error": "no such thing"}))
