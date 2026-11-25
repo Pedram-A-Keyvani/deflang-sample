@@ -6,46 +6,125 @@ comment is //
 
 // This website's one page: its name and links at the top, every view (shown inside <main>, where their templates are), the site's style, and the script that switches views. Each element with def="..." gets that def's HTML.
 // Example: serve site page at "/"
-//          → GET /bmi answers a page containing <header><strong>def-lang</strong><nav def="site nav">
+//          → GET /bmi answers a page containing <nav def="site nav">
 html site page
     <!doctype html>
     <html lang="en">
+
     <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-      <title>def-lang</title>
-      <style def="site style"></style>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>def-lang</title>
+        <style def="site style"></style>
     </head>
+
     <body>
-      <header><strong>def-lang</strong><nav def="site nav"></nav></header>
-      <main aria-live="polite">
-        <template def="home view"></template>
-        <template def="hello view"></template>
-        <template def="bmi view"></template>
-        <template def="missing view"></template>
-      </main>
-      <script def="web script"></script>
+        <header>
+            <strong>def-lang</strong>
+            <nav def="site nav"></nav>
+        </header>
+        <main aria-live="polite">
+            <template def="home view"></template>
+            <template def="hello view"></template>
+            <template def="bmi view"></template>
+            <template def="missing view"></template>
+        </main>
+        <script def="web script"></script>
     </body>
+
     </html>
 
 // How the whole site looks: the colors (light and dark), the header, and the headings, links, forms and buttons every view uses. A view's own look is in its view file.
 // Example: serve site page at "/"
 //          → GET / answers a page containing --accent: #2f5d50
 css site style
-    :root { --bg: #f6f5f2; --fg: #222; --muted: #666; --line: #ccc; --accent: #2f5d50; --accent-fg: #fff; --error: #a33; }
-    @media (prefers-color-scheme: dark) {
-      :root { --bg: #1b1d1c; --fg: #e6e6e3; --muted: #a0a3a0; --line: #444; --accent: #6fb39d; --accent-fg: #102019; --error: #ff8a80; }
+    :root {
+        --bg: #f6f5f2;
+        --fg: #222;
+        --muted: #666;
+        --line: #ccc;
+        --accent: #2f5d50;
+        --accent-fg: #fff;
+        --error: #a33;
     }
-    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--fg); margin: 0; }
-    header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;
-             max-width: 36rem; margin: 0 auto; padding: 1rem; border-bottom: 1px solid var(--line); }
-    main { max-width: 36rem; margin: 2rem auto; padding: 0 1rem; }
-    h1 { font-size: 1.8rem; }
-    a { color: var(--accent); }
-    form { display: flex; gap: .5rem; flex-wrap: wrap; }
-    input { padding: .5rem; border: 1px solid var(--line); border-radius: 6px; flex: 1; min-width: 8rem;
-            background: transparent; color: inherit; font: inherit; }
-    button { padding: .5rem 1rem; border: 0; border-radius: 6px; background: var(--accent); color: var(--accent-fg);
-             cursor: pointer; font: inherit; }
-    .error { color: var(--error); }
-    button:disabled { opacity: .6; cursor: wait; }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg: #1b1d1c;
+            --fg: #e6e6e3;
+            --muted: #a0a3a0;
+            --line: #444;
+            --accent: #6fb39d;
+            --accent-fg: #102019;
+            --error: #ff8a80;
+        }
+    }
+
+    body {
+        font-family: system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        margin: 0;
+    }
+
+    header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        max-width: 36rem;
+        margin: 0 auto;
+        padding: 1rem;
+        border-bottom: 1px solid var(--line);
+    }
+
+    main {
+        max-width: 36rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+
+    h1 {
+        font-size: 1.8rem;
+    }
+
+    a {
+        color: var(--accent);
+    }
+
+    form {
+        display: flex;
+        gap: .5rem;
+        flex-wrap: wrap;
+    }
+
+    input {
+        padding: .5rem;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        flex: 1;
+        min-width: 8rem;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+    }
+
+    button {
+        padding: .5rem 1rem;
+        border: 0;
+        border-radius: 6px;
+        background: var(--accent);
+        color: var(--accent-fg);
+        cursor: pointer;
+        font: inherit;
+    }
+
+    .error {
+        color: var(--error);
+    }
+
+    button:disabled {
+        opacity: .6;
+        cursor: wait;
+    }
