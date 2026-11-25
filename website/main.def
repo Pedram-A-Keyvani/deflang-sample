@@ -1,6 +1,8 @@
 use core
-use web/server
-use web/script
+use website
+use api
+use spa
+use def/running
 use def/site.page
 use components/nav
 use components/home
@@ -23,7 +25,9 @@ use def/routes
 //   def/routes.def           every address the website answers
 //   settings.toml            port, everyone, watch
 //
-// The web server and the script come from the web library (web/server and
-// web/script), installed with def-lang install.
+//   def/running.def          how it runs: settings.toml, read again when saved
+//
+// The libraries come with def-lang install: website (its pages), api (the data its
+// components ask for), and spa (the script that switches views).
 
-start the server
+start the website with the settings in "settings.toml"

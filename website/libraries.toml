@@ -1,9 +1,36 @@
 # The libraries of this program, and where they come from. Written by
 # `python -m deflang install`; run it with no arguments to install them all again.
 
-core = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#core", version = "0.2.0", global = true }
+api = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#api", version = "0.1.0" }
+checks = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#checks", version = "0.1.0", global = true }
+comparison = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#comparison", version = "0.1.0", global = true }
+console = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#console", version = "0.1.0", global = true }
+core = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#core", version = "0.1.1", global = true }
+entry = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#entry", version = "0.1.0", global = true }
+errors = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#errors", version = "0.1.0", global = true }
+files = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#files", version = "0.1.0", global = true }
 flag = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#flag", version = "0.1.0", global = true }
+formats = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#formats", version = "0.1.0", global = true }
+http = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#http", version = "0.1.0" }
+joined = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#joined", version = "0.1.0", global = true }
+kinds = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#kinds", version = "0.1.0", global = true }
 language = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#language", version = "0.1.0", global = true }
+lists = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#lists", version = "0.1.0", global = true }
+logic = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#logic", version = "0.1.0", global = true }
+loops = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#loops", version = "0.1.0", global = true }
+math = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#math", version = "0.1.0", global = true }
 modifier = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#modifier", version = "0.1.0", global = true }
+number-words = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#number-words", version = "0.1.0", global = true }
+phrases = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#phrases", version = "0.1.0", global = true }
+program = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#program", version = "0.1.0", global = true }
+questions = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#questions", version = "0.1.0", global = true }
+random = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#random", version = "0.1.0", global = true }
+server = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#server", version = "0.1.0" }
+settings = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#settings", version = "0.1.0", global = true }
+spa = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#spa", version = "0.1.0" }
 statement = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#statement", version = "0.1.0", global = true }
-web = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#web", version = "0.2.0" }
+tables = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#tables", version = "0.1.0", global = true }
+text = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#text", version = "0.1.0", global = true }
+time = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#time", version = "0.1.0", global = true }
+values = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#values", version = "0.1.0", global = true }
+website = { from = "https://github.com/Pedram-A-Keyvani/deflang-lib.git#website", version = "0.1.0" }

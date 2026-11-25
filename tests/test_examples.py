@@ -94,7 +94,7 @@ def engine_for(path, said):
             if line.startswith("use "):
                 e.run(line)
     else:
-        # a library's file: the core library, and the file itself (`use web/server`, `use language/html`)
+        # a library's file: the core library, and the file itself (`use website`, `use language/html`)
         e.program_dir = LIBRARY_PROGRAM
         e.run("use core")
         library = path.parent.name
@@ -110,7 +110,6 @@ def request(e, url):
 def get(e, url):
     """Start the example's web server on a free port, GET url, stop it."""
     e.run("server on port 0")
-    e.run('the settings are in ""')  # not the package's settings.toml: its port may be in use
     thread = threading.Thread(target=e.run, args=("start the server",), daemon=True)
     thread.start()
     for _ in range(200):

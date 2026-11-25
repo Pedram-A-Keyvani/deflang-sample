@@ -45,11 +45,27 @@ def library(name: str) -> Path:
     return LIBRARIES[name][0]
 
 
+def needs(*names) -> list:
+    """The libraries `names` are, with the ones they use (their libraries.toml), and theirs:
+    what `def-lang install` lists for them."""
+    found = []
+
+    def visit(name):
+        if name in found:
+            return
+        found.append(name)
+        listed = library(name) / "libraries.toml"
+        for other in (tomllib.loads(listed.read_text()) if listed.is_file() else {}):
+            visit(other)
+    for name in names:
+        visit(name)
+    return found
+
+
 def link_libraries(program, *names):
-    """Give a test program deflang-lib's libraries, used where they are."""
-    names = names or ("core", "language", "flag", "statement", "modifier", "web")
-    if "core" in names:  # and the libraries core uses, as `def-lang install` lists them
-        names = tuple(dict.fromkeys(names + ("language", "flag", "statement", "modifier")))
+    """Give a test program deflang-lib's libraries (all of them, or `names` and what they
+    use), used where they are."""
+    names = needs(*names) if names else list(LIBRARIES)
     Path(program, "libraries.toml").write_text("".join(f'{n} = {{ from = "{library(n)}", link = true }}\n' for n in names))
 
 

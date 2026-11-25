@@ -17,7 +17,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import interpreter  # noqa: E402  finds ../deflang and ../deflang-lib
-from interpreter import bare, LIB, LIBRARY_PROGRAM, SAMPLES, library, link_libraries  # noqa: E402
+from interpreter import bare, LIB, LIBRARIES, LIBRARY_PROGRAM, SAMPLES, library, link_libraries, needs  # noqa: E402
 
 from deflang.exception import DefException  # noqa: E402
 from deflang.execute import Execute  # noqa: E402
@@ -457,7 +457,9 @@ class TestWeb(unittest.TestCase):
         self.e.program_dir = LIBRARY_PROGRAM
         for line in [
             "use core",
-            "use web/server",
+            "use website",
+            "use api",
+            "use template",
             "shared visits is 0",
             "def home page",
             "    visits is visits + 1",
@@ -724,10 +726,10 @@ class TestScopes(unittest.TestCase):
         self.assertIn((self.folder / "extra.def").resolve(), self.e._imported)
 
     def test_a_library_is_all_its_files(self):
-        Path(self.folder, "mine.def").write_text("python sum of A0\n    return 'mine'\n")
+        Path(self.folder, "mine.def").write_text("python the value of A0\n    return 'mine'\n")
         self.e.run("use mine")
-        self.assertEqual(self.e.run("in the scope of core, sum of [1, 2]"), 3)  # core/math.def
-        self.assertEqual(self.e.run("in the scope of mine, sum of [1, 2]"), "mine")
+        self.assertEqual(self.e.run("in the scope of flag, the value of 5"), 5)  # flag/later.def
+        self.assertEqual(self.e.run("in the scope of mine, the value of 5"), "mine")
 
     def test_a_python_body_runs_the_words_in_their_scope(self):
         self.assertEqual(self.e.run("in the scope of web/http, listen on 1 if 2 > 1 otherwise 0"), "http: 1")
@@ -800,7 +802,9 @@ class TestSettings(unittest.TestCase):
         self.e = Execute(output=lambda value: self.said.append(str(value)))
         self.e.program_dir = self.folder
         link_libraries(self.folder)
-        for line in ["use core", "use web/server", "use view", 'serve the page at "/"']:
+        # how the website sample runs: settings.toml, read again when saved
+        (self.folder / "running.def").write_text((SAMPLES / "website" / "def" / "running.def").read_text())
+        for line in ["use core", "use website", "use view", "use running", 'serve the page at "/"']:
             self.e.run(line)
         self.thread = None
 
@@ -818,9 +822,11 @@ class TestSettings(unittest.TestCase):
         os.utime(file, ns=(later, later))
 
     def start(self):
-        self.thread = threading.Thread(target=self.e.run, args=("start the server",), daemon=True)
+        self.thread = threading.Thread(target=self.e.run, args=(self.START,), daemon=True)
         self.thread.start()
         self.wait(lambda: "server" in self.e["store"]["http"])
+
+    START = 'start the website with the settings in "settings.toml"'
 
     def wait(self, condition):
         for _ in range(200):
@@ -845,17 +851,17 @@ class TestSettings(unittest.TestCase):
     def test_an_unknown_setting_stops_the_start(self):
         self.settings("port = 0\nrelaod = true\n")
         with self.assertRaisesRegex(DefException, "unknown setting 'relaod'"):
-            self.e.run("start the server")
+            self.e.run(self.START)
         self.settings('port = "8000"\n')
         with self.assertRaisesRegex(DefException, "port must be a whole number"):
-            self.e.run("start the server")
+            self.e.run(self.START)
         self.settings("port = 0\nwatch = 0.01\n")
         with self.assertRaisesRegex(DefException, "watch is 0 \\(off\\), or at least 0.1 seconds"):
-            self.e.run("start the server")
+            self.e.run(self.START)
         # the old names are gone: the message lists the settings there are
         self.settings("port = 0\nreload = true\n")
         with self.assertRaisesRegex(DefException, "unknown setting 'reload' \\(the settings are port, everyone, watch\\)"):
-            self.e.run("start the server")
+            self.e.run(self.START)
 
     def test_a_new_port_while_it_runs(self):
         self.settings("port = 0\n")
@@ -921,8 +927,8 @@ class TestLibraries(unittest.TestCase):
         self.global_folder = Path(tempfile.mkdtemp())
         self.env = mock.patch.dict(os.environ, {"DEFLANG_GLOBAL": str(self.global_folder)})
         self.env.start()
-        for name, inside in [("core", "core"), ("modifier", "modifier"), ("web", "web"), ("language", "language"), ("flag", "flag"), ("statement", "statement")]:
-            shutil.copytree(library(name), self.repo / inside)
+        for name in LIBRARIES:
+            shutil.copytree(library(name), self.repo / name)
         git = lambda *args: subprocess.run(["git", "-C", str(self.repo), *args], check=True, capture_output=True)
         git("init", "--quiet")
         git("add", ".")
@@ -956,11 +962,11 @@ class TestLibraries(unittest.TestCase):
         return tomllib.loads((library(name) / "library.toml").read_text())["version"]
 
     def test_from_git_into_the_project(self):
-        # web's own libraries.toml lists ../language: it comes from the same repo
-        self.assertEqual(self.install(f"{self.url}#web"), ["web", "language", "flag", "core", "statement", "modifier"])
-        self.assertTrue((self.program / "libraries" / "web" / "server.def").is_file())
+        # website's own libraries.toml lists ../core, ...: they come from the same repo
+        self.assertEqual(sorted(self.install(f"{self.url}#website")), sorted(needs("website")))
+        self.assertTrue((self.program / "libraries" / "website" / "main.def").is_file())
         self.assertTrue((self.program / "libraries" / "language" / "javascript.def").is_file())
-        self.assertIn(f'web = {{ from = "{self.url}#web", version = "{self.version("web")}" }}', self.listed())
+        self.assertIn(f'website = {{ from = "{self.url}#website", version = "{self.version("website")}" }}', self.listed())
         self.assertIn(f'language = {{ from = "{self.url}#language", version = "{self.version("language")}" }}', self.listed())
         self.assertEqual((self.program / "libraries" / ".gitignore").read_text().splitlines()[-1], "*")
 
@@ -981,18 +987,17 @@ class TestLibraries(unittest.TestCase):
         self.assertEqual(self.run_program("use core", "x is 2 + 3", "x squared"), 25)
 
     def test_global(self):
-        self.assertEqual(self.install(f"{self.url}#web", globally=True), ["web", "language", "flag", "core", "statement", "modifier"])
-        self.assertTrue((self.global_folder / "web" / self.version("web") / "server.def").is_file())
+        self.assertEqual(sorted(self.install(f"{self.url}#website", globally=True)), sorted(needs("website")))
+        self.assertTrue((self.global_folder / "website" / self.version("website") / "main.def").is_file())
         self.assertFalse((self.program / "libraries").exists())
-        self.assertIn(f'web = {{ from = "{self.url}#web", version = "{self.version("web")}", global = true }}', self.listed())
+        self.assertIn(f'website = {{ from = "{self.url}#website", version = "{self.version("website")}", global = true }}', self.listed())
         self.install(f"{self.url}#core", globally=True)
         self.assertEqual(self.run_program("use core", "3 squared"), 9)
 
     def test_a_local_library_is_linked(self):
-        # core's own libraries.toml lists ../modifier: linked the same way
-        shutil.copytree(library("core"), self.program / "my-libraries" / "core")
-        for other in ("modifier", "language", "flag", "statement"):
-            shutil.copytree(library(other), self.program / "my-libraries" / other)
+        # core's own libraries.toml lists ../modifier, ...: linked the same way
+        for name in needs("core"):
+            shutil.copytree(library(name), self.program / "my-libraries" / name)
         self.install(self.program / "my-libraries" / "core", link=True)
         self.assertFalse((self.program / "libraries" / "core").exists())
         self.assertIn('core = { from = "my-libraries/core", link = true }', self.listed())
@@ -1002,11 +1007,11 @@ class TestLibraries(unittest.TestCase):
     def test_install_again_from_the_list(self):
         from deflang import libraries
         self.install(f"{self.url}#core")
-        self.install(f"{self.url}#web", globally=True)
+        self.install(f"{self.url}#website", globally=True)
         shutil.rmtree(self.program / "libraries")
-        shutil.rmtree(self.global_folder / "web")
-        self.assertEqual(sorted(libraries.install_all(self.program, say=self.said.append)), ["core", "flag", "language", "modifier", "statement", "web"])
-        self.assertTrue((self.global_folder / "web" / self.version("web")).is_dir())
+        shutil.rmtree(self.global_folder / "website")
+        self.assertEqual(sorted(libraries.install_all(self.program, say=self.said.append)), sorted(needs("core", "website")))
+        self.assertTrue((self.global_folder / "website" / self.version("website")).is_dir())
         self.assertEqual(self.run_program("use core", "3 squared"), 9)
 
     def test_the_rules(self):
@@ -1124,14 +1129,13 @@ class TestPackages(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             Path(folder, "pages").mkdir()
             Path(folder, "def").mkdir()
-            Path(folder, "def", "web.server.def").write_text((library("web") / "server.def").read_text())
-            Path(folder, "def", "http.def").write_text((library("web") / "http.def").read_text())  # the file it uses
-            link_libraries(folder, "core")
+            Path(folder, "def", "page.template.def").write_text((library("template") / "main.def").read_text())
+            link_libraries(folder, "core", "files")
             Path(folder, "pages", "hi.html").write_text("<p>{{ 1 + 1 }}</p>")
             e = bare()
             e.program_dir = Path(folder)
             e.run("use core")
-            e.run("use def/web.server")  # found in the package's own def/ folder
+            e.run("use def/page.template")  # found in the package's own def/ folder
             self.assertEqual(e.run('template "pages/hi.html"'), "<p>2</p>")
 
     def run_package(self, name, *answers):
@@ -1157,7 +1161,7 @@ class TestPackages(unittest.TestCase):
     def test_website_bmi_accepts_meters_and_centimeters(self):
         e = Execute(output=lambda value: None)
         e.program_dir = SAMPLES / "website"
-        for line in ["use core", "use web/server", "use language/html", "use language/css", "use components/bmi"]:
+        for line in ["use core", "use server", "use language/html", "use language/css", "use components/bmi"]:
             e.run(line)
         for height in ["1.75", "175"]:
             e["store"]["http"]["request"] = {"path": "/api/bmi", "query": {"weight": "70", "height": height}}
@@ -1476,7 +1480,7 @@ class TestJavaScript(DefTest):
         e = Execute(output=lambda value: None)
         e.program_dir = package
         for line in (package / "main.def").read_text().splitlines():
-            if line.startswith("start the server"):
+            if line.startswith("start the"):
                 break
             e.run(line)
         page = e.run("site page")
@@ -1626,13 +1630,10 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(self.problems("use core\n", texts="use core\nsay nope\n"), [(2, "unknown name 'nope'")])
 
     def test_each_library_file_has_none_on_its_own(self):
-        # a file a program can use, with only its own library's libraries.toml: as the
-        # editor checks it, and as it is installed. Not core's topic files: core/main.def
-        # uses them, after what they need
+        # every file of every library, with only its own library's libraries.toml: as the
+        # editor checks it, and as it is installed
         from deflang.check import check
         for path in sorted(LIB.rglob("*.def")):
-            if path.parent.name == "core" and path.stem not in ("main", "kernel"):
-                continue
             with self.subTest(str(path.relative_to(LIB))):
                 found, _ = check(path.resolve(), path.parent.resolve())
                 self.assertEqual([(line, message) for _, line, message in found], [])

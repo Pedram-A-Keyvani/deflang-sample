@@ -1,0 +1,79 @@
+use core
+use files
+use settings
+use program
+use server
+use port, host from server
+
+// How this website runs: the settings in a file, read again whenever it is saved,
+// while it runs. The website's own choice: a program can give the server its port
+// from anywhere (`server on port 8000`).
+//   port = 8000          the port
+//   everyone = false     true: other computers on the network can connect
+//   watch = 0            seconds between looking for changed .def files; 0: off (at least 0.1 otherwise)
+
+// The settings it takes, and their kinds.
+shared kinds is a new table
+put "a whole number" in kinds at "port"
+put "true or false" in kinds at "everyone"
+put "a number" in kinds at "watch"
+shared settingsfile is "settings.toml"
+shared watching is 0
+
+// Starts the website with the settings in the file A0, and takes them again whenever the file is saved, while it runs.
+// Example: start the website with the settings in "settings.toml"
+//          → serving on http://localhost:8000, as settings.toml says (not checked)
+def start the website with the settings in A0
+    settingsfile is A0
+    take the settings
+    say what it watches
+    when the file settingsfile is saved : take the settings again
+    start the server
+
+// The settings in the file: the server's port and everyone, and watch. An error names the file, and what is wrong.
+def take the settings
+    settings is the settings in the file
+    everyone is the everyone of settings
+    number is settings at "port" if settings has "port" otherwise port
+    give the server port number, everyone everyone, or if that fails, fail with settingsfile ": " error
+    watching is settings at "watch" if settings has "watch" otherwise 0
+    every watching seconds : read the changed files again
+
+def give the server port A0, everyone A1
+    A1 ?
+        server on port A0 for everyone
+    is not ?
+        server on port A0
+
+def the everyone of A0
+    A0 at "everyone" if A0 has "everyone" otherwise host = "0.0.0.0"
+
+// The settings in the file, checked; none without the file.
+def the settings in the file
+    found is a new table
+    settingsfile is a file ?
+        found is the table in file settingsfile
+    found checked against kinds, or if that fails, fail with settingsfile ": " error
+    found has "watch" ?
+        check the watch in found
+    found
+
+def check the watch in A0
+    watch is A0 at "watch"
+    either watch < 0 or both watch > 0 and watch < 0.1 ?
+        fail with settingsfile ": watch is 0 (off), or at least 0.1 seconds"
+
+// The settings again, after the file was saved: what changed is said; settings that can't be used keep the last ones.
+def take the settings again
+    before is the address it listens on
+    watched is watching
+    take the settings, or if that fails, say "settings not changed: " error "; the last settings stay"
+    after is the address it listens on
+    not before = after ?
+        say "settings changed: now on " after
+    not watched = watching ?
+        say "settings changed: watch is " watching
+
+def say what it watches
+    watching > 0 ?
+        say "watching .def files every " watching " s"
