@@ -104,30 +104,29 @@ def engine_for(path, said):
 
 def request(e, url):
     query = dict(p.split("=", 1) for p in url.split("?", 1)[1].split("&")) if "?" in url else {}
-    e["store"]["web"]["request"] = {"path": url.split("?")[0], "query": query, "page": False}
+    e["store"]["http"]["request"] = {"path": url.split("?")[0], "query": query}
 
 
 def get(e, url):
     """Start the example's web server on a free port, GET url, stop it."""
     e.run("server on port 0")
-    e["store"]["web"]["settings_file"] = None  # not the package's settings.toml: its port may be in use
+    e.run('the settings are in ""')  # not the package's settings.toml: its port may be in use
     thread = threading.Thread(target=e.run, args=("start the server",), daemon=True)
     thread.start()
     for _ in range(200):
-        if "server" in e["store"]["web"]:
+        if "server" in e["store"]["http"]:
             break
         threading.Event().wait(0.01)
     try:
-        port = e["store"]["web"]["server"].server_address[1]
+        port = e["store"]["http"]["server"].server_address[1]
         try:
             with urllib.request.urlopen(f"http://127.0.0.1:{port}{url}") as response:
                 return response.read()
         except urllib.error.HTTPError as error:
             return error.read()
     finally:
-        e["store"]["web"]["server"].shutdown()
+        e["store"]["http"]["stop"].set()
         thread.join(5)
-        del e["store"]["web"]["server"]
 
 
 class TestExamples(unittest.TestCase):

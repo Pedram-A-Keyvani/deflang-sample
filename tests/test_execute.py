@@ -17,7 +17,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import interpreter  # noqa: E402  finds ../deflang and ../deflang-lib
-from interpreter import bare, LIBRARY_PROGRAM, SAMPLES, library, link_libraries  # noqa: E402
+from interpreter import bare, LIB, LIBRARY_PROGRAM, SAMPLES, library, link_libraries  # noqa: E402
 
 from deflang.exception import DefException  # noqa: E402
 from deflang.execute import Execute  # noqa: E402
@@ -476,13 +476,13 @@ class TestWeb(unittest.TestCase):
         self.thread = threading.Thread(target=self.e.run, args=("start the server",), daemon=True)
         self.thread.start()
         for _ in range(100):
-            if "server" in self.e["store"]["web"]:
+            if "server" in self.e["store"]["http"]:
                 break
             threading.Event().wait(0.02)
-        self.base = f"http://127.0.0.1:{self.e["store"]["web"]['server'].server_address[1]}"
+        self.base = f"http://127.0.0.1:{self.e["store"]["http"]['server'].server_address[1]}"
 
     def tearDown(self):
-        self.e["store"]["web"]["server"].shutdown()
+        self.e["store"]["http"]["stop"].set()
         self.thread.join(5)
         self.folder.cleanup()
 
@@ -574,6 +574,37 @@ class TestVariables(DefTest):
         # `the A0` gets the words, so it sees the caller's own variables
         self.run_lines("def total", "    numbers is [1, 2]", "    sum of the numbers")
         self.assertEqual(self.run_lines("total"), 3)
+
+
+class TestKeptLines(DefTest):
+    """Arguments a def-lang body gets by name, and lines kept to run later (the flag `later`)."""
+
+    def test_an_argument_then_a_symbol(self):
+        # `A1,` is the argument A1, then a comma
+        self.run_lines("python mix A0 and A1, as A2", "    return A0 + A1 + A2")
+        self.assertEqual(self.run_lines('mix "a" and "b", as "c"'), "abc")
+
+    def test_a_text_comes_in_by_its_name(self):
+        # a text with quotes or several lines comes into a def-lang body as it is
+        self.run_lines("python odd text", "    return 'a \"b\"\\nc'", "def same as A0", "    A0")
+        self.assertEqual(self.run_lines("same as odd text"), 'a "b"\nc')
+        # and a text right after a phrase isn't joined to it
+        self.run_lines("def A0 starts the same as A1", "    A1 starts with A0")
+        self.assertEqual(self.run_lines('"/a" starts the same as "/a/b"'), True)
+
+    def test_a_kept_line_runs_later_where_it_was_written(self):
+        # a sentence: its fixed words start the line, so it wraps the rest (`*` too)
+        self.run_lines("use flag/later", "shared kept is []", "def[later] keep for later A0", "    add A0 to kept",
+                       "rate is 2", "keep for later rate * 10", "rate is 3")
+        self.assertEqual(self.run_lines("the value of first of kept"), 30)
+        # with variables of its own: what it sets is gone afterwards
+        self.run_lines("keep for later doubled is rate * 2")
+        self.run_lines("the value of last of kept")
+        self.assertNotIn("doubled", self.e["variables"])
+
+    def test_or_if_that_fails(self):
+        self.assertEqual(self.run_lines('x is 1, or if that fails, x is 2', "x"), 1)
+        self.assertEqual(self.run_lines('fail with "no " 1 + 1, or if that fails, "caught: " error'), "caught: no 2")
 
 
 class TestFileVariables(unittest.TestCase):
@@ -770,7 +801,7 @@ class TestSettings(unittest.TestCase):
 
     def tearDown(self):
         if self.thread:
-            self.e["store"]["web"]["server"].shutdown()
+            self.e["store"]["http"]["stop"].set()
             self.thread.join(5)
         shutil.rmtree(self.folder)
 
@@ -784,7 +815,7 @@ class TestSettings(unittest.TestCase):
     def start(self):
         self.thread = threading.Thread(target=self.e.run, args=("start the server",), daemon=True)
         self.thread.start()
-        self.wait(lambda: "server" in self.e["store"]["web"])
+        self.wait(lambda: "server" in self.e["store"]["http"])
 
     def wait(self, condition):
         for _ in range(200):
@@ -794,7 +825,7 @@ class TestSettings(unittest.TestCase):
         self.fail("it didn't happen: " + "; ".join(self.said))
 
     def port(self):
-        return self.e["store"]["web"]["server"].server_address[1]
+        return self.e["store"]["http"]["server"].server_address[1]
 
     def get(self, path="/", port=None):
         with urllib.request.urlopen(f"http://127.0.0.1:{port or self.port()}{path}", timeout=5) as response:
@@ -1089,6 +1120,7 @@ class TestPackages(unittest.TestCase):
             Path(folder, "pages").mkdir()
             Path(folder, "def").mkdir()
             Path(folder, "def", "web.server.def").write_text((library("web") / "server.def").read_text())
+            Path(folder, "def", "http.def").write_text((library("web") / "http.def").read_text())  # the file it uses
             link_libraries(folder, "core")
             Path(folder, "pages", "hi.html").write_text("<p>{{ 1 + 1 }}</p>")
             e = bare()
@@ -1123,7 +1155,7 @@ class TestPackages(unittest.TestCase):
         for line in ["use core", "use web/server", "use language/html", "use language/css", "use def/components/bmi"]:
             e.run(line)
         for height in ["1.75", "175"]:
-            e["store"]["web"]["request"] = {"path": "/api/bmi", "query": {"weight": "70", "height": height}, "page": False}
+            e["store"]["http"]["request"] = {"path": "/api/bmi", "query": {"weight": "70", "height": height}}
             self.assertEqual((e.run("bmi"), e.run("verdict")), (22.9, "healthy"), height)
         # its weight and height were the def's own
         self.assertNotIn("weight", e["variables"])
@@ -1314,7 +1346,7 @@ class TestKernel(unittest.TestCase):
         self.run_lines("python A0 + A1", "    return A0 + A1", "set total to 2 + 3")
         self.assertEqual(self.e["variables"]["total"], 5)
         self.run_lines("flag odd", "    does in def", "        set colors to blue")
-        with self.assertRaisesRegex(DefException, "set colors to blue: a flag here sets arguments to as written, arguments to values, "
+        with self.assertRaisesRegex(DefException, "set colors to blue: a flag here sets arguments to as written, arguments to kept, arguments to values, "
                                                   "pattern to readable, pattern to regex, seen by to every file, seen by to the file"):
             self.run_lines("python[odd] x", "    return 1")
         self.run_lines("statement tabs", "    words tabs of A0", "    does in def[written]", "        set indent to A0", "tabs of 2")
@@ -1587,6 +1619,18 @@ class TestCheck(unittest.TestCase):
 
     def test_the_text_given_instead_of_the_file(self):
         self.assertEqual(self.problems("use core\n", texts="use core\nsay nope\n"), [(2, "unknown name 'nope'")])
+
+    def test_each_library_file_has_none_on_its_own(self):
+        # a file a program can use, with only its own library's libraries.toml: as the
+        # editor checks it, and as it is installed. Not core's topic files: core/main.def
+        # uses them, after what they need
+        from deflang.check import check
+        for path in sorted(LIB.rglob("*.def")):
+            if path.parent.name == "core" and path.stem not in ("main", "kernel"):
+                continue
+            with self.subTest(str(path.relative_to(LIB))):
+                found, _ = check(path.resolve(), path.parent.resolve())
+                self.assertEqual([(line, message) for _, line, message in found], [])
 
     def test_the_examples_have_none(self):
         from deflang.check import check
