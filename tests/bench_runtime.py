@@ -70,6 +70,16 @@ def measure_loops(execute, iterations):
     return times
 
 
+def measure_def_body(execute, iterations):
+    """Seconds for calls whose def-language body has changing argument values."""
+    execute.run("def __perf_triple A0")
+    execute.run("    A0 * 3")
+    execute.run("")
+    start = time.perf_counter()
+    execute.run(f"for each n in numbers from 1 to {iterations}: __perf_triple n")
+    return time.perf_counter() - start
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rounds", type=int, default=300)
@@ -95,10 +105,12 @@ def main():
         "per_line_us": round(measure_lines(execute, arguments.rounds, lines), 1),
         "loop_seconds": {k: round(v, 3) for k, v in
                          measure_loops(execute, arguments.iterations).items()},
+        "def_body_seconds": round(measure_def_body(execute, arguments.iterations), 3),
     }
     print(json.dumps(results, indent=2) if arguments.json else
           f"{results['definitions']} definitions, {results['lines']} lines: "
-          f"{results['per_line_us']} us/line, loops {results['loop_seconds']}")
+          f"{results['per_line_us']} us/line, loops {results['loop_seconds']}, "
+          f"def bodies {results['def_body_seconds']}s")
     return 0
 
 

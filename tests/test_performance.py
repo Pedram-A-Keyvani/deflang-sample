@@ -2,7 +2,7 @@
 import json
 import unittest
 
-from bench_runtime import engine, measure_lines, measure_loops, prime
+from bench_runtime import engine, measure_def_body, measure_lines, measure_loops, prime
 from parse_corpus import BASELINE, parse_corpus
 
 
@@ -25,6 +25,9 @@ class TestRuntimeBudget(unittest.TestCase):
         loops = measure_loops(execute, iterations=500)
         self.assertLess(loops["constant"], 1.0, f"constant loop: {loops['constant']:.2f}s")
         self.assertLess(loops["text_join"], 2.0, f"text-join loop: {loops['text_join']:.2f}s")
+
+        bodies = measure_def_body(execute, iterations=500)
+        self.assertLess(bodies, 0.2, f"varying def bodies: {bodies:.2f}s")
 
 
 if __name__ == "__main__":
