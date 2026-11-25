@@ -648,6 +648,71 @@ class TestFileVariables(unittest.TestCase):
         self.assertEqual([e.run("first"), e.run("second")], [1, 2])
 
 
+class TestScopes(unittest.TestCase):
+    """`in the scope of FILE`: where several files define the same phrase, which one is read."""
+
+    def setUp(self):
+        self.folder = Path(tempfile.mkdtemp())
+        link_libraries(self.folder, "core")
+        for name, said in [("web/http", "http"), ("io/audio", "audio")]:
+            Path(self.folder, name).parent.mkdir(exist_ok=True)
+            Path(self.folder, f"{name}.def").write_text(f'use core\ndef listen on A0\n    "{said}: " A0\n')
+        self.e = bare()
+        self.e.program_dir = self.folder
+        self.e.run("use core")
+        self.e.run("use io/audio")
+        self.e.run("use web/http")
+
+    def test_the_lines_under_it(self):
+        self.assertEqual(self.e.run_lines("in the scope of web/http\n    x is listen on 1\n    port is 8080\n    x"), "http: 1")
+        self.assertEqual(self.e.run("port"), 8080)  # a variable of the file, as without the scope
+
+    def test_the_rest_of_its_line(self):
+        self.assertEqual(self.e.run('in the scope of io/audio, listen on "dance, now"'), "audio: dance, now")
+        self.assertEqual(self.e.run("in the scope of web/http and io/audio, 1 + 2"), 3)
+
+    def test_without_a_scope_it_is_an_error(self):
+        with self.assertRaisesRegex(DefException, r"'listen on 3' is a phrase of io/audio and of web/http: say which, like `in the scope of io/audio, …`"):
+            self.e.run("listen on 3")
+        # nor after the lines under it
+        with self.assertRaisesRegex(DefException, "'listen on 4' is a phrase of"):
+            self.e.run_lines("in the scope of web/http\n    x is listen on 1\nlisten on 4")
+        # two files in scope: still which one?
+        with self.assertRaisesRegex(DefException, "'listen on 5' is a phrase of"):
+            self.e.run("in the scope of web/http and io/audio, listen on 5")
+
+    def test_a_file_in_scope_is_used(self):
+        # extra wasn't used: the scope uses it, once
+        Path(self.folder, "extra.def").write_text('use core\ndef listen on A0\n    "extra: " A0\n')
+        self.assertEqual(self.e.run("in the scope of extra, listen on 1"), "extra: 1")
+        self.assertIn((self.folder / "extra.def").resolve(), self.e._imported)
+
+    def test_a_library_is_all_its_files(self):
+        Path(self.folder, "mine.def").write_text("python sum of A0\n    return 'mine'\n")
+        self.e.run("use mine")
+        self.assertEqual(self.e.run("in the scope of core, sum of [1, 2]"), 3)  # core/math.def
+        self.assertEqual(self.e.run("in the scope of mine, sum of [1, 2]"), "mine")
+
+    def test_a_python_body_runs_the_words_in_their_scope(self):
+        self.assertEqual(self.e.run("in the scope of web/http, listen on 1 if 2 > 1 otherwise 0"), "http: 1")
+
+    def test_a_definitions_own_lines_are_in_its_own_scope(self):
+        # not in the scope of the line that calls it
+        self.e.run_lines("def hear A0\n    listen on A0")
+        with self.assertRaisesRegex(DefException, "'listen on 5' is a phrase of"):
+            self.e.run("in the scope of web/http, hear 5")
+        self.e.run_lines("def hear again A0\n    in the scope of io/audio, listen on A0")
+        self.assertEqual(self.e.run("hear again 6"), "audio: 6")
+
+    def test_check_reads_in_scope(self):
+        from deflang.check import check
+        main = (self.folder / "main.def").resolve()
+        main.write_text("use core\nuse io/audio\nin the scope of web/http\n    say listen on 1\n"
+                        "in the scope of io/audio, say listen on 2\nsay listen on 3\n")
+        found, _ = check(main, self.folder)
+        self.assertEqual([(line, message.split(":")[0]) for _, line, message in found], [(6, "'listen on 3' is a phrase of io/audio and of web/http")])
+
+
 class TestReload(DefTest):
     def test_a_changed_file_gets_its_new_defs(self):
         with tempfile.TemporaryDirectory() as folder:
