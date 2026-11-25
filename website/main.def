@@ -2,11 +2,11 @@ use core
 use web/server
 use web/script
 use def/site.page
-use def/components/nav
-use def/components/home
-use def/components/hello
-use def/components/bmi
-use def/components/missing
+use components/nav
+use components/home
+use components/hello
+use components/bmi
+use components/missing
 use def/routes
 
 // run with:  def-lang run website   then open http://localhost:8000
@@ -18,8 +18,8 @@ use def/routes
 // work out its data; def/routes.def says at which address each is sent.
 //
 //   def/site.page.def        the one page the components live in
-//   def/components/nav.def   the links at the top
-//   def/components/*.def     one file per component: home, hello, bmi, missing
+//   components/nav.def       the links at the top
+//   components/*.def         one file per component: home, hello, bmi, missing
 //   def/routes.def           every address the website answers
 //   settings.toml            port, everyone, watch
 //

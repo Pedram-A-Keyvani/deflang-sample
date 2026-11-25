@@ -1157,7 +1157,7 @@ class TestPackages(unittest.TestCase):
     def test_website_bmi_accepts_meters_and_centimeters(self):
         e = Execute(output=lambda value: None)
         e.program_dir = SAMPLES / "website"
-        for line in ["use core", "use web/server", "use language/html", "use language/css", "use def/components/bmi"]:
+        for line in ["use core", "use web/server", "use language/html", "use language/css", "use components/bmi"]:
             e.run(line)
         for height in ["1.75", "175"]:
             e["store"]["http"]["request"] = {"path": "/api/bmi", "query": {"weight": "70", "height": height}}
@@ -1169,7 +1169,7 @@ class TestPackages(unittest.TestCase):
     def test_website_package_exists(self):
         package = SAMPLES / "website"
         components = ["nav", "home", "hello", "bmi", "missing"]
-        for name in ["main.def", "def/site.page.def", "def/routes.def", *[f"def/components/{c}.def" for c in components]]:
+        for name in ["main.def", "def/site.page.def", "def/routes.def", *[f"components/{c}.def" for c in components]]:
             self.assertTrue((package / name).is_file(), name)
 
 
