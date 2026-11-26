@@ -1412,7 +1412,7 @@ class TestTheTree(unittest.TestCase):
 
     def test_its_keys(self):
         self.assertEqual(sorted(self.e.keys()), ["aliases", "answer", "cycle", "definitions", "entry", "file", "files", "flag",
-                                                 "hooks", "language", "mode", "modifier", "program", "shared", "statement",
+                                                 "language", "mode", "modifier", "program", "shared", "statement",
                                                  "store", "variables"])
         with self.assertRaisesRegex(DefException, "the kernel has no 'color'"):
             self.e["color"]

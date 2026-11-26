@@ -1,4 +1,4 @@
-"""A modifier can add a real capability: hooks around a definition call."""
+"""Entries can add real capabilities: hooks around the kernel's cycles."""
 import sys
 import tempfile
 import unittest
@@ -162,6 +162,185 @@ shout hello
         said = []
         self.engine(file, said.append)
         self.assertEqual(said, ["shouting", "HELLO"])
+
+    def test_a_declared_modifier_does_nothing_until_it_is_used(self):
+        _, file = self.program("""\
+modifier watched
+    hook line start in python
+        self.say("a line ran")
+    hook file start in python
+        self.say("a file was read")
+
+def double A0
+    A0 * 2
+
+say double 21
+""")
+        said = []
+        self.engine(file, said.append)
+        self.assertEqual(said, ["42"])
+
+    def test_a_file_hook_wraps_reading_a_used_file(self):
+        _, file = self.program("""\
+modifier watched
+    hook file start in python
+        watched = self["cycle"]["owner"]
+        self["cycle"]["state"][watched]["name"] = as_text(self["cycle"]["text"])
+        self.say("open " + self["cycle"]["state"][watched]["name"])
+    hook file end in python
+        watched = self["cycle"]["owner"]
+        self.say("closed " + as_text(self["cycle"]["file"]))
+
+watched use part
+say part_answer
+""")
+        file.parent.joinpath("part.def").write_text("python part_answer\n    return 42\n")
+        said = []
+        self.engine(file, said.append)
+        self.assertEqual(said[0], "open part")
+        self.assertTrue(said[1].startswith("closed "))
+        self.assertIn("part.def", said[1])
+        self.assertEqual(said[2], "42")
+
+    def test_a_define_hook_sees_the_definition_it_makes(self):
+        _, file = self.program("""\
+modifier watched
+    hook define start in python
+        self.say("define " + self["cycle"]["pattern"])
+    hook define end in python
+        D = self["cycle"]["definition"]
+        self.say("made " + D.source)
+
+watched def double A0
+    A0 * 2
+
+say double 21
+""")
+        said = []
+        self.engine(file, said.append)
+        self.assertEqual(said, ["define double A0", "made double A0", "42"])
+
+    def test_a_line_hook_wraps_a_running_line(self):
+        _, file = self.program("""\
+modifier watched
+    hook line start in python
+        watched = self["cycle"]["owner"]
+        self["cycle"]["state"][watched]["text"] = self["cycle"]["text"]
+        self.say("line " + self["cycle"]["kind"] + " " + self["cycle"]["text"])
+    hook line end in python
+        watched = self["cycle"]["owner"]
+        self.say("read " + self["cycle"]["state"][watched]["text"])
+
+watched def double A0
+    A0 * 2
+
+watched say double 21
+""")
+        said = []
+        self.engine(file, said.append)
+        self.assertEqual(said, ["line expression say double 21", "line expression A0 * 2",
+                                "read A0 * 2", "42", "read say double 21"])
+
+    def test_a_body_hook_wraps_the_body_of_a_def(self):
+        _, file = self.program("""\
+modifier watched
+    hook body start in python
+        self.say("body " + self["cycle"]["text"])
+    hook body end in python
+        self.say("done " + self["cycle"]["definition"].source)
+
+watched def double A0
+    A0 * 2
+
+say double 21
+""")
+        said = []
+        self.engine(file, said.append)
+        self.assertEqual(said, ["body double 21", "done double A0", "42"])
+
+    def test_a_scope_hook_wraps_own_variables(self):
+        _, file = self.program("""\
+modifier watched
+    hook scope start in python
+        watched = self["cycle"]["owner"]
+        self["cycle"]["state"][watched]["n"] = 1
+        self.say("scope start")
+    hook scope end in python
+        watched = self["cycle"]["owner"]
+        self.say("scope end " + as_text(self["cycle"]["state"][watched]["n"]))
+
+watched def double A0
+    A0 * 2
+
+say double 21
+""")
+        said = []
+        self.engine(file, said.append)
+        self.assertEqual(said, ["scope start", "scope end 1", "42"])
+
+    def test_body_and_scope_hooks_survive_a_compiled_build(self):
+        _, file = self.program("""\
+modifier watched
+    hook body start in python
+        self.say("body " + self["cycle"]["text"])
+    hook scope start in python
+        self.say("scope")
+
+watched def double A0
+    A0 * 2
+
+say double 21
+""")
+        artifact = build.compile_program(str(file))
+        interpreted = []
+        self.engine(file, interpreted.append)
+        compiled = []
+        execute = Execute(output=lambda value: compiled.append(str(value)))
+        lines = build.load(artifact, execute)
+        build.run_lines(execute, lines, output=lambda value: compiled.append(str(value)))
+        self.assertEqual(compiled, interpreted)
+
+    def test_line_hooks_survive_a_compiled_build(self):
+        _, file = self.program("""\
+modifier watched
+    hook line start in python
+        self.say("line " + self["cycle"]["text"])
+
+watched def double A0
+    A0 * 2
+
+watched say double 21
+""")
+        artifact = build.compile_program(str(file))
+        interpreted = []
+        self.engine(file, interpreted.append)
+        compiled = []
+        execute = Execute(output=lambda value: compiled.append(str(value)))
+        lines = build.load(artifact, execute)
+        build.run_lines(execute, lines, output=lambda value: compiled.append(str(value)))
+        self.assertEqual(compiled, interpreted)
+
+    def test_replacing_an_entry_replaces_its_hooks(self):
+        _, file = self.program("""\
+use first
+use second
+
+timed say 1
+""")
+        file.parent.joinpath("first.def").write_text("""\
+modifier timed
+    hook line start in python
+        self.say("old")
+""")
+        file.parent.joinpath("second.def").write_text("""\
+modifier timed
+    replaces first
+    hook line start in python
+        self.say("new")
+""")
+        said = []
+        self.engine(file, said.append)
+        self.assertEqual(said, ["new", "1"])
 
     def test_a_duplicate_modifier_needs_replaces(self):
         folder, file = self.program(TRACE)
