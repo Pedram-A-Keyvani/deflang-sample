@@ -1290,7 +1290,7 @@ class TestKernel(unittest.TestCase):
         self.assertIn("upper", self.e["language"])
         for lines, message in [
             (["language two words"], "an entry is its kind and a one-word name"),
-            (["language odd", "    color red"], "language odd has no field 'color' \\(its fields are: does, editor, replaces\\)"),
+            (["language odd", "    color red"], "language odd has no field 'color' \\(its fields are: does, editor, hook, replaces\\)"),
             (["modifier odd", "    does"], "`does` says the language of its body: does in def, does in python"),
             (["modifier odd", "    does in nothing"], "does in nothing: there is no language nothing yet"),
             (["modifier odd", "    applies to name"], "modifier odd has no field 'applies'"),
@@ -1411,8 +1411,9 @@ class TestTheTree(unittest.TestCase):
         return result
 
     def test_its_keys(self):
-        self.assertEqual(sorted(self.e.keys()), ["aliases", "answer", "definitions", "entry", "file", "files", "flag", "language",
-                                                 "mode", "modifier", "program", "shared", "statement", "store", "variables"])
+        self.assertEqual(sorted(self.e.keys()), ["aliases", "answer", "cycle", "definitions", "entry", "file", "files", "flag",
+                                                 "hooks", "language", "mode", "modifier", "program", "shared", "statement",
+                                                 "store", "variables"])
         with self.assertRaisesRegex(DefException, "the kernel has no 'color'"):
             self.e["color"]
 
