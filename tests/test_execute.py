@@ -504,6 +504,9 @@ class TestWeb(unittest.TestCase):
 
     def test_static_files_and_404(self):
         self.assertEqual(self.get("/style.css"), (200, "p {}"))
+        Path(self.folder.name, "docs").mkdir(exist_ok=True)
+        Path(self.folder.name, "docs", "index.html").write_text("<p>docs</p>")
+        self.assertEqual(self.get("/docs"), (200, "<p>docs</p>"))
         self.assertEqual(self.get("/missing.png")[0], 404)
         # never a file outside the folder: an address without an extension gets the app page
         self.assertNotIn("root:", self.get("/../etc/passwd")[1])
