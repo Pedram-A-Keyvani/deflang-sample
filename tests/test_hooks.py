@@ -320,6 +320,49 @@ watched say double 21
         build.run_lines(execute, lines, output=lambda value: compiled.append(str(value)))
         self.assertEqual(compiled, interpreted)
 
+    def test_shared_uses_a_define_hook_instead_of_a_reserved_set_word(self):
+        _, file = self.program("shared visits is 0\nsay visits\n")
+        said = []
+        execute = self.engine(file, said.append)
+        self.assertEqual(said, ["0"])
+        self.assertEqual(execute["files"][None]["names"], {"visits": (None, "visits")})
+        _, wrong = self.program("shared def x\n    1\n")
+        with self.assertRaisesRegex(DefException, "shared names a variable, not a definition"):
+            self.engine(wrong)
+
+    def test_internal_uses_a_define_hook_instead_of_a_reserved_set_word(self):
+        folder, file = self.program("use part\n")
+        part = folder / "part.def"
+        part.write_text("internal def A0 halved\n    A0 / 2\n")
+        execute = self.engine(file)
+        found = [d for d in execute.definitions if d.source == "A0 halved" and d.file == part]
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].visibility, "file")
+        self.assertFalse(found[0].seen_by(None))
+        with self.assertRaisesRegex(DefException, "unknown name '8 halved'"):
+            execute.run("8 halved")
+        _, wrong = self.program("internal visits is 4\n")
+        with self.assertRaisesRegex(DefException, "internal marks a definition, not a name"):
+            self.engine(wrong)
+
+    def test_shared_and_internal_hooks_survive_a_compiled_build(self):
+        _, file = self.program("""\
+shared visits is 0
+internal def A0 halved
+    A0 / 2
+
+say 8 halved
+say visits
+""")
+        artifact = build.compile_program(str(file))
+        interpreted = []
+        self.engine(file, interpreted.append)
+        compiled = []
+        execute = Execute(output=lambda value: compiled.append(str(value)))
+        lines = build.load(artifact, execute)
+        build.run_lines(execute, lines, output=lambda value: compiled.append(str(value)))
+        self.assertEqual(compiled, interpreted)
+
     def test_replacing_an_entry_replaces_its_hooks(self):
         _, file = self.program("""\
 use first

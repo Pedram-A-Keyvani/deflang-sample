@@ -1327,17 +1327,31 @@ class TestKernel(unittest.TestCase):
         self.assertEqual(self.said, ["hi there", '"hi there"'])
 
     def test_modifiers(self):
-        # written in def, with the core library's words; the interpreter knows what each
-        # stands in front of: a name (shared) or a definition (internal)
-        self.run_lines("modifier shared", "    does in def", "        set name to shared",
+        # a modifier's hooks act on the name or definition it is written in front of;
+        # no `set` word is reserved for either
+        self.run_lines("modifier shared", "    hook define start in python",
+                       "        ENTRY = self['entry']",
+                       "        NAME = ENTRY.get('name') if ENTRY is not None else None",
+                       "        if NAME is None or self['cycle'].get('variable') is None or self['cycle']['definition'] is not None:",
+                       "            raise DefException('shared names a variable, not a definition')",
+                       "        HERE = self['file']",
+                       "        self['files'][HERE]['names'][NAME] = (HERE, NAME)",
                        "python[written] A0 is A1", "    self['variables'][A0] = self.run(A1)",
                        "shared visits is 3")
         self.assertEqual(self.run_lines("visits"), 3)
-        self.run_lines("modifier internal", "    does in def", "        set seen by to the file")
-        with self.assertRaisesRegex(DefException, "set seen by to the file: a modifier here sets name to shared"):
+        self.run_lines("modifier internal", "    hook define end in python",
+                       "        DEFINITION = self['cycle']['definition']",
+                       "        if DEFINITION is None:",
+                       "            raise DefException('internal marks a definition, not a name')",
+                       "        DEFINITION.visibility = 'file'",
+                       "        DEFINITION.seen_by = lambda file: file == DEFINITION.file")
+        with self.assertRaisesRegex(DefException, "internal marks a definition, not a name"):
             self.run_lines("internal visits is 4")
-        with self.assertRaisesRegex(DefException, "set name to shared: a modifier here sets arguments to as written, "):
+        with self.assertRaisesRegex(DefException, "shared names a variable, not a definition"):
             self.run_lines("shared def x", "    1")
+        self.run_lines("modifier old", "    does in def", "        set name to shared")
+        with self.assertRaisesRegex(DefException, "a modifier here sets no fields"):
+            self.run_lines("old x")
 
     def test_entries_written_in_def(self):
         self.run_lines("flag raw", "    does in def", "        set arguments to as written",
@@ -1356,8 +1370,11 @@ class TestKernel(unittest.TestCase):
         self.assertEqual(self.e["variables"]["total"], 5)
         self.run_lines("flag odd", "    does in def", "        set colors to blue")
         with self.assertRaisesRegex(DefException, "set colors to blue: a flag here sets arguments to as written, arguments to kept, arguments to values, "
-                                                  "pattern to readable, pattern to regex, seen by to every file, seen by to the file"):
+                                                  "pattern to readable, pattern to regex"):
             self.run_lines("python[odd] x", "    return 1")
+        self.run_lines("flag old", "    does in def", "        set seen by to the file")
+        with self.assertRaisesRegex(DefException, "set seen by to the file: a flag here sets arguments to as written"):
+            self.run_lines("python[old] x", "    return 1")
         self.run_lines("statement tabs", "    words tabs of A0", "    does in def[written]", "        set indent to A0", "tabs of 2")
         self.assertEqual(self.e["files"][None]["indent"], 2)
         with self.assertRaisesRegex(DefException, "indent is a whole number, 1 or more: two"):
@@ -1387,7 +1404,13 @@ class TestKernel(unittest.TestCase):
 
     def test_an_internal_def_is_seen_only_by_its_file(self):
         with tempfile.TemporaryDirectory() as folder:
-            Path(folder, "private.def").write_text("modifier internal\n    does in def\n        set seen by to the file\n")
+            Path(folder, "private.def").write_text(
+                "modifier internal\n"
+                "    hook define end in python\n"
+                "        DEFINITION = self['cycle']['definition']\n"
+                "        DEFINITION.visibility = 'file'\n"
+                "        DEFINITION.seen_by = lambda file: file == DEFINITION.file\n"
+            )
             Path(folder, "bmi.def").write_text(
                 "use private\ninternal def A0 halved\n    A0 / 2\npython A0 / A1\n    return A0 / A1\n"
                 "def bmi of A0\n    A0 halved\n")
